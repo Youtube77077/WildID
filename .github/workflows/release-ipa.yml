@@ -43,6 +43,7 @@ jobs:
         if: contains(github.event.head_commit.message, '[ipa]')
         run: |
           mkdir -p dist && cp WildID.ipa dist/WildID.ipa
+          python3 tools/altstore/make_source.py build/device/Build/Products/Release-iphoneos/WildID.app dist/WildID.ipa
           printf "Built from %s (%s)\nUnsigned: sign with Sideloadly/AltStore using your Apple ID.\n" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%d)" > dist/BUILD_INFO.txt
           git config user.name "wildid-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

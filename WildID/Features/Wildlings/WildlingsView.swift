@@ -171,6 +171,7 @@ struct PetDetailView: View {
     @State private var facts: SpeciesFacts?
     @State private var appeared = false
     @State private var playing = false
+    @State private var hangout = false
     @State private var fedPulse = 0
 
     init(entryKey: String) {
@@ -205,6 +206,14 @@ struct PetDetailView: View {
                         PetModelView(scientificName: e.scientificName, group: e.group, size: 230)
                             .scaleEffect(appeared ? 1 : 0.7)
                             .opacity(appeared ? 1 : 0)
+                            .onTapGesture { hangout = true }
+                        Button { hangout = true } label: {
+                            Label("Visit \(e.displayName)", systemImage: "leaf.fill")
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14).padding(.vertical, 8)
+                                .background(.black.opacity(0.3), in: Capsule())
+                        }
                     }
                 }
                 .overlay(alignment: .topTrailing) {
@@ -323,6 +332,9 @@ struct PetDetailView: View {
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) { appeared = true }
             let args = ProcessInfo.processInfo.arguments
+            if args.contains("-wildid-hangout") {
+                Task { @MainActor in try? await Task.sleep(nanoseconds: 1_200_000_000); hangout = true }
+            }
             if args.contains("-wildid-game") || args.contains("-wildid-games") {
                 Task { @MainActor in try? await Task.sleep(nanoseconds: 1_200_000_000); playing = true }
             }
@@ -381,6 +393,7 @@ struct PetDetailView: View {
         .padding(14)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .sheet(isPresented: $playing) { GameHostView(entry: e, preselected: Self.launchGame) }
+        .fullScreenCover(isPresented: $hangout) { HangoutView(entry: e) }
     }
 
     /// CI screenshots: `-wildid-game run|fishing|dash|pop|maze` jumps straight into a game.

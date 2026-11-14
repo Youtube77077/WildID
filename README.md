@@ -12,6 +12,7 @@ Tabs: **Home · Map · Wild Index · Wildlings**. Identification (Sound ID, Phot
 - **Wildlings** – every animal you catch also becomes a companion (with a built-in "How Wildlings work" guide): XP, levels 1–50, rarity tiers from **Common to Legendary** (based on how rarely it's recorded where you found it, boosted for threatened species), nicknames, favourites, a game-style card and detail page, and a slot for a 3D model. No battles, nothing to buy, and XP can't be farmed (see below).
 - **Photo ID** (species-level for 965 birds and 1,021 insects when the photo models are built; group-level + local candidates for everything else) and **Step by Step** guided identification.
 - **Mini-games** – play one game a day with each Wildling, picking from 5: **Run** (jump obstacles, 400 m), **Fishing** (6 timed casts, 300 points; water animals get a wider catch zone), **Dash** (dodge rocks, 30 coins), **Pop** (match-3 bubble shooter, 35 bubbles), **Maze** (random maze, exit within 60 s, treats add time). Reach the goal and that Wildling gets food (2 for a great score). Miss it and it can try again tomorrow. The day's play is used up when the game starts, so quitting doesn't give a retry. Feed food on the Wildling's page for +15 XP per meal. Until 3D models arrive, Wildlings appear in games as their photo, and their pages show a "3D model coming soon" placeholder.
+- **Visit your Wildling** – tap a Wildling (or "Visit") to hang out with it in a meadow scene: its nickname, level and rarity at the top, with Feed, Pet and Play buttons. Feeding sends food flying in and earns XP, and petting makes it hop with hearts. The meadow is a drawn placeholder; a 3D scenery model published as `models3d/scene_meadow.usdz` replaces it automatically.
 - **Search everything** – the Wild Index search also lists every matching animal (iNaturalist, plus GBIF for names it lacks).
 - **Range circles** – species maps show soft circles where the animal is recorded most: red at the centre with the most records, fading to yellow at the edge. They come from verified iNaturalist sightings and update as you zoom, and are drawn over the expert range map where one exists.
 - **Human voices don't count** – Sound ID ignores any moment where a person is heard talking, whistling, singing or humming, using BirdNET's own human classes and Apple's sound classifier. An animal heard only alongside a human voice shows as "possible" and is never added, so imitations can't fake a catch.
@@ -38,7 +39,7 @@ Captured automatically on the iOS Simulator by the *Simulator screenshots* workf
 | **Create account**<br><img src="docs/screenshots/25-create-account.png" width="240"> | **Map: tap a group**<br><img src="docs/screenshots/26-map-tap-group.png" width="240"> | **Catch animation (video)**<br>[catch-animation.mp4](docs/screenshots/catch-animation.mp4) |
 | **Search all animals**<br><img src="docs/screenshots/27-search-all-animals.png" width="240"> | **Range circles**<br><img src="docs/screenshots/28-range-circles.png" width="240"> | **Pick a game**<br><img src="docs/screenshots/29-games-picker.png" width="240"> |
 | **Wildling Run**<br><img src="docs/screenshots/30-game-run.png" width="240"> | **Wildling Fishing**<br><img src="docs/screenshots/31-game-fishing.png" width="240"> | **Wildling Dash**<br><img src="docs/screenshots/32-game-dash.png" width="240"> |
-| **Wildling Pop**<br><img src="docs/screenshots/33-game-pop.png" width="240"> | **Wildling Maze**<br><img src="docs/screenshots/34-game-maze.png" width="240"> | |
+| **Wildling Pop**<br><img src="docs/screenshots/33-game-pop.png" width="240"> | **Wildling Maze**<br><img src="docs/screenshots/34-game-maze.png" width="240"> | **Visit your Wildling**<br><img src="docs/screenshots/35-hangout.png" width="240"> |
 
 ### Wildlings rules (fair play)
 
@@ -85,6 +86,12 @@ You need a **Mac with Xcode 16 or newer** (free from the Mac App Store) and an *
 9. Allow **Microphone** (Sound ID), **Location** (nearby animals, filtering, map) and **Camera/Photos** (Photo ID) when asked.
 
 Requirements: iOS 17.0 or later, iPhone. App size ≈ 50 MB (most of it is the BirdNET sound model).
+
+### Updates in AltStore (one tap)
+
+Add this source once in AltStore (**Browse → Sources → +**):
+`https://raw.githubusercontent.com/Youtube77077/WildID/claude/festive-tesla-rhpbyd/dist/altstore-source.json`
+Whenever a new WildID build is published, AltStore shows **Update**. It installs over the old version and keeps your catches. 3D models and scenery download inside the app by themselves, without any update.
 
 ### Alternative: install the .ipa (no Mac needed for building)
 

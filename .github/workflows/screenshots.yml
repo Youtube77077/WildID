@@ -100,6 +100,7 @@ jobs:
           WAIT=30 shot 32-game-dash $D -wildid-pet "Vulpes vulpes" -wildid-game dash
           WAIT=30 shot 33-game-pop $D -wildid-pet "Vulpes vulpes" -wildid-game pop
           WAIT=30 shot 34-game-maze $D -wildid-pet "Vulpes vulpes" -wildid-game maze
+          WAIT=28 shot 35-hangout $D -wildid-pet "Vulpes vulpes" -wildid-hangout
           # Short video of the new-animal animation (pop-up + confetti), ~6 s.
           xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
           xcrun simctl launch "$UDID" "$BUNDLE" -wildid-skip-onboarding $D -wildid-demo-toast new
