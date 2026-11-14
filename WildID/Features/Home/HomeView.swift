@@ -85,9 +85,11 @@ struct HomeView: View {
                     Image("WildMark").resizable().renderingMode(.template).foregroundStyle(Theme.moss).frame(width: 22, height: 22)
                     Text("WildID").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(Theme.moss)
                 }
-                Text(greeting).font(.system(size: 30, weight: .heavy, design: .rounded))
+                Text(greeting).font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
-            Spacer()
+            .layoutPriority(1)
+            Spacer(minLength: 4)
             Button { router.tab = .wildlings } label: {
                 HStack(spacing: 6) {
                     ZStack {
@@ -96,9 +98,8 @@ struct HomeView: View {
                         Text("\(level.level)").font(.system(size: 13, weight: .heavy, design: .rounded))
                     }
                     .frame(width: 30, height: 30)
-                    Text("Explorer").font(.system(size: 13, weight: .bold, design: .rounded))
                 }
-                .padding(.leading, 4).padding(.trailing, 10).padding(.vertical, 4)
+                .padding(5)
                 .background(Theme.card, in: Capsule())
             }
             .tint(.primary)

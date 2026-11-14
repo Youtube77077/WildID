@@ -40,7 +40,7 @@ enum AchievementEngine {
         return [
             milestone(1, "sparkles"), milestone(10, "10.circle.fill"), milestone(25, "star.fill"),
             milestone(50, "star.circle.fill"), milestone(100, "crown.fill"), milestone(250, "medal.fill"),
-            firstOf(.birds), firstOf(.mammals), firstOf(.insects), firstOf(.amphibians), firstOf(.reptiles),
+            firstOf(.mammals), firstOf(.birds), firstOf(.reptiles), firstOf(.amphibians), firstOf(.insects),
             firstOf(.fish), firstOf(.arachnids), firstOf(.molluscs),
             Achievement(id: "families-10", title: "10 Families", detail: "Collect animals from 10 different families", symbol: "tree.fill",
                         progress: min(1, Double(families.count) / 10), unlockedAt: nil),
