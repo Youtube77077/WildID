@@ -64,6 +64,7 @@ struct WildMapView: View {
             .toolbar(.hidden, for: .navigationBar)
             .wildDestinations()
             .onAppear(perform: initialFocus)
+            .onChange(of: location.activePlace?.name) { _, _ in initialFocus() }
             .onChange(of: router.mapFocus?.latitude) { _, _ in
                 if let c = router.mapFocus {
                     focus = MapFocusRequest(token: UUID(), region: MKCoordinateRegion(center: c, latitudinalMeters: 3000, longitudinalMeters: 3000))
