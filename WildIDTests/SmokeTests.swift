@@ -120,8 +120,27 @@ final class BirdNETTests: XCTestCase {
         XCTAssertGreaterThan(predictions.first?.confidence ?? 0, 0.5)
     }
 
-    /// A faint, distant blackbird (−26 dB) buried under strong wind rumble and hiss: the
-    /// enhanced pass (high-pass + gain) must still name it.
+    /// Why Sound ID doesn't amplify: the model ignores loudness. The same blackbird scores the
+    /// same at full scale and 50 dB quieter.
+    func testQuietCallScoresLikeLoudCall() throws {
+        guard BirdNETClassifier.isAvailable,
+              let url = bundle.url(forResource: "birdnet_input", withExtension: "f32") else {
+            throw XCTSkip("BirdNET model not bundled in this build.")
+        }
+        let data = try Data(contentsOf: url)
+        let clean: [Float] = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        let classifier = try BirdNETClassifier()
+        func blackbird(_ x: [Float]) throws -> Float {
+            try x.withUnsafeBufferPointer { try classifier.classify($0, threshold: 0.01, useLocationFilter: false) }
+                .first { $0.label.scientificName == "Turdus merula" }?.confidence ?? 0
+        }
+        let loud = try blackbird(clean)
+        let quiet = try blackbird(clean.map { $0 * 0.003 })
+        XCTAssertEqual(quiet, loud, accuracy: 0.05)
+    }
+
+    /// A faint blackbird (peak 0.05) buried under strong wind rumble and hiss is still the top
+    /// suggestion, with a score above the default "Sensitive" threshold.
     func testFaintBlackbirdInWindIsStillIdentified() throws {
         guard BirdNETClassifier.isAvailable,
               let url = bundle.url(forResource: "birdnet_input", withExtension: "f32") else {
@@ -139,13 +158,10 @@ final class BirdNETTests: XCTestCase {
             return s / peak * 0.05 + 0.6 * wind + 0.002 * rand()
         }
         let classifier = try BirdNETClassifier()
-        let raw = try noisy.withUnsafeBufferPointer { try classifier.classify($0, threshold: 0.01, useLocationFilter: false) }
-        let combined = InferencePipeline.classify(noisy, model: classifier, threshold: 0.01, useLocationFilter: false, enhance: true)
-        let rawScore = raw.first { $0.label.scientificName == "Turdus merula" }?.confidence ?? 0
-        let combinedScore = combined.first { $0.label.scientificName == "Turdus merula" }?.confidence ?? 0
-        print("Faint blackbird in wind — raw: \(rawScore), with enhancer: \(combinedScore); top: \(combined.prefix(3).map { "\($0.label.commonName) \($0.confidence)" })")
-        XCTAssertGreaterThanOrEqual(combinedScore, rawScore)
-        XCTAssertGreaterThan(combinedScore, DetectionSensitivity.sensitive.threshold)
+        let predictions = try noisy.withUnsafeBufferPointer { try classifier.classify($0, threshold: 0.01, useLocationFilter: false) }
+        print("Faint blackbird in wind — top: \(predictions.prefix(3).map { "\($0.label.commonName) \($0.confidence)" })")
+        XCTAssertEqual(predictions.first?.label.scientificName, "Turdus merula")
+        XCTAssertGreaterThanOrEqual(predictions.first?.confidence ?? 0, DetectionSensitivity.sensitive.threshold)
     }
 
     /// The location/season model expects blackbirds in North Holland in November and
@@ -195,36 +211,6 @@ final class AudioDSPTests: XCTestCase {
         XCTAssertGreaterThan(FileStore.size(of: url), 1000)
         let back = PlaybackSpectrogramModel.read(url: url, from: 0, seconds: 3) ?? []
         XCTAssertEqual(Double(back.count) / 48_000, 2, accuracy: 0.2)
-    }
-
-    private func tone(_ hz: Double, amplitude: Float, seconds: Double = 1) -> [Float] {
-        let sr = AudioCaptureEngine.analysisSampleRate
-        return (0..<Int(sr * seconds)).map { amplitude * Float(sin(2 * Double.pi * hz * Double($0) / sr)) }
-    }
-
-    private func rms(_ x: ArraySlice<Float>) -> Float {
-        (x.reduce(0) { $0 + $1 * $1 } / Float(max(1, x.count))).squareRoot()
-    }
-
-    /// The wind/rumble filter removes 40 Hz almost completely and leaves a 3 kHz call untouched.
-    func testHighPassRemovesRumbleKeepsCalls() {
-        let rumble = SignalEnhancer.highPass(tone(40, amplitude: 0.5))
-        let call = SignalEnhancer.highPass(tone(3000, amplitude: 0.5))
-        let skip = 4800   // ignore the filter's start-up transient
-        XCTAssertLessThan(rms(rumble[skip...]), 0.01 * rms(tone(40, amplitude: 0.5)[skip...]))
-        XCTAssertEqual(rms(call[skip...]), rms(tone(3000, amplitude: 0.5)[skip...]), accuracy: 0.02)
-    }
-
-    /// A call 46 dB below full scale is lifted to a level the classifier is trained on;
-    /// digital silence is not turned into noise.
-    func testEnhancerLiftsFaintSoundsButNotSilence() {
-        let faint = SignalEnhancer.enhance(tone(4000, amplitude: 0.005))
-        XCTAssertGreaterThan(faint.max() ?? 0, 0.2)
-        XCTAssertLessThanOrEqual(faint.max() ?? 0, 1)
-        let silence = SignalEnhancer.enhance([Float](repeating: 0, count: 48_000))
-        XCTAssertEqual(silence.max() ?? 1, 0)
-        XCTAssertEqual(SignalEnhancer.gain(forPeak: 0.9), 1)          // never attenuates
-        XCTAssertEqual(SignalEnhancer.gain(forPeak: 1e-6), SignalEnhancer.maxGain)
     }
 
     func testSampleRingKeepsLatestWindow() {

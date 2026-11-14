@@ -28,7 +28,7 @@ struct IdentifyView: View {
                     Button { open { router.showSoundID = true } } label: {
                         IdentifyCard(symbol: "mic.fill", title: "Sound ID",
                                      subtitle: BirdNETClassifier.isAvailable
-                                        ? "Listen live and name the animals calling around you. Tuned to pick up quiet, distant sounds through wind and background noise. Knows 6,500+ animal voices (birds, frogs, crickets, cicadas and some mammals) plus everyday animal sounds like dogs, cats and livestock."
+                                        ? "Listen live and name the animals calling around you. Tuned to be very sensitive, so quiet and distant calls count too. Knows 6,500+ animal voices (birds, frogs, crickets, cicadas and some mammals) plus everyday animal sounds like dogs, cats and livestock."
                                         : "Listen live for animal sounds. The species model is missing from this build — see README.",
                                      prominent: true, badge: sound.isActive ? "Listening…" : nil)
                     }

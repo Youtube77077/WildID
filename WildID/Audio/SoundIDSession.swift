@@ -43,9 +43,16 @@ final class SampleRing: @unchecked Sendable {
 /// 3 s windows without ever blocking capture (windows are skipped if inference falls behind).
 ///
 /// Windows start every second, so any short call (a bird flying over, a single chip note) lands
-/// in up to three windows. Each window is classified twice — raw and enhanced (wind/rumble
-/// high-pass + automatic gain, see `SignalEnhancer`) — and the stronger score per species wins,
-/// which is what lets quiet, distant animals be picked out of background noise.
+/// in two or three overlapping windows. That overlap is what makes a low threshold safe: a quiet,
+/// distant animal is accepted at a low score, but it is only added to the Wild Index once it has
+/// been heard in at least two windows (see `maybeCatch`), and the location/season filter removes
+/// species that don't occur here.
+///
+/// The audio is deliberately NOT filtered or amplified: BirdNET normalises loudness itself (the
+/// same recording scores identically from 0 dB down to −50 dB) and was trained on noisy field
+/// recordings, so high-pass filtering or noise subtraction lowered the score of the true species
+/// in our tests (tools/eval: a blackbird in strong wind went from 0.175 to 0.07 with a 250 Hz
+/// high-pass, and to 0.002 with spectral subtraction).
 final class InferencePipeline: @unchecked Sendable {
     static let hop = 48_000   // 1 s at 48 kHz
 
@@ -57,15 +64,13 @@ final class InferencePipeline: @unchecked Sendable {
     private var classifier: BirdNETClassifier?
     private var threshold: Float = 0.5
     private var useFilter = true
-    private var enhance = true
     var onResult: (@Sendable ([BirdNETClassifier.Prediction], TimeInterval, [Float]) -> Void)?
 
-    func configure(classifier: BirdNETClassifier?, threshold: Float, useFilter: Bool, enhance: Bool = true) {
+    func configure(classifier: BirdNETClassifier?, threshold: Float, useFilter: Bool) {
         lock.withLock {
             self.classifier = classifier
             self.threshold = threshold
             self.useFilter = useFilter
-            self.enhance = enhance
             framesSince = 0
             busy = false
         }
@@ -77,45 +82,29 @@ final class InferencePipeline: @unchecked Sendable {
 
     func feed(_ samples: UnsafeBufferPointer<Float>, endPosition: AVAudioFramePosition) {
         ring.append(samples)
-        let job: (BirdNETClassifier, Float, Bool, Bool)? = lock.withLock {
+        let job: (BirdNETClassifier, Float, Bool)? = lock.withLock {
             framesSince += samples.count
             guard framesSince >= Self.hop, !busy, let classifier else { return nil }
             framesSince = 0
             busy = true
-            return (classifier, threshold, useFilter, enhance)
+            return (classifier, threshold, useFilter)
         }
         guard let job else { return }
         guard ring.filled >= BirdNETClassifier.windowSamples else {
             lock.withLock { busy = false }
             return
         }
-        let (model, minConfidence, filter, useEnhancer) = job
+        let (model, minConfidence, filter) = job
         let window = ring.snapshot()
         let windowStart = Double(endPosition) / AudioCaptureEngine.analysisSampleRate - 3.0
         queue.async { [weak self] in
-            let predictions = Self.classify(window, model: model, threshold: minConfidence,
-                                            useLocationFilter: filter, enhance: useEnhancer)
+            let predictions = (try? window.withUnsafeBufferPointer {
+                try model.classify($0, threshold: minConfidence, useLocationFilter: filter)
+            }) ?? []
             guard let self else { return }
             self.lock.withLock { self.busy = false }
             self.onResult?(Array(predictions.prefix(4)), windowStart, window)
         }
-    }
-}
-
-extension InferencePipeline {
-    /// Raw + enhanced pass, merged per class (max confidence). Exposed for tests.
-    static func classify(_ window: [Float], model: BirdNETClassifier, threshold: Float,
-                         useLocationFilter: Bool, enhance: Bool) -> [BirdNETClassifier.Prediction] {
-        var best: [Int: BirdNETClassifier.Prediction] = [:]
-        func run(_ samples: [Float]) {
-            let preds = (try? samples.withUnsafeBufferPointer {
-                try model.classify($0, threshold: threshold, useLocationFilter: useLocationFilter)
-            }) ?? []
-            for p in preds where p.confidence > (best[p.index]?.confidence ?? 0) { best[p.index] = p }
-        }
-        run(window)
-        if enhance { run(SignalEnhancer.enhance(window)) }
-        return best.values.sorted { $0.confidence > $1.confidence }
     }
 }
 
@@ -236,9 +225,8 @@ final class SoundIDSession {
         applyLocationFilter()
 
         let engine = AudioCaptureEngine()
-        pipeline.configure(classifier: birdnet, threshold: settings?.sensitivity.threshold ?? 0.25,
-                           useFilter: settings?.useLocationFilter ?? true,
-                           enhance: settings?.enhanceFaintSounds ?? true)
+        pipeline.configure(classifier: birdnet, threshold: settings?.sensitivity.threshold ?? 0.15,
+                           useFilter: settings?.useLocationFilter ?? true)
         pipeline.onResult = { @Sendable [weak self] predictions, windowStart, window in
             Task { @MainActor in self?.handleBirdNET(predictions, windowStart: windowStart, samples: window) }
         }
@@ -468,8 +456,8 @@ final class SoundIDSession {
         guard let i = detections.firstIndex(where: { $0.id == id }) else { return }
         let d = detections[i]
         guard d.resolved, !d.caught, !d.species.isGroupLevel, settings?.autoAddToWildIndex ?? true, let collection else { return }
-        let threshold = settings?.sensitivity.threshold ?? 0.25
-        let strongSingle = d.maxConfidence >= min(0.85, threshold + 0.35)
+        let threshold = settings?.sensitivity.threshold ?? 0.15
+        let strongSingle = d.maxConfidence >= max(0.7, threshold + 0.2)
         guard d.count >= 2 || strongSingle else { return }
         detections[i].caught = true
 

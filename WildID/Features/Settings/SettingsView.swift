@@ -54,14 +54,13 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
-                    Toggle("Boost faint & distant sounds", isOn: $settings.enhanceFaintSounds)
                     Toggle("Filter by location & season", isOn: $settings.useLocationFilter)
                     Toggle("Detect everyday animal sounds (dogs, cats, livestock…)", isOn: $settings.detectNonBirdSounds)
                     Toggle("Add detections to Wild Index automatically", isOn: $settings.autoAddToWildIndex)
                     Toggle("“New Animal” pop-ups", isOn: $settings.newAnimalPopups)
                     Toggle("Haptics", isOn: $settings.haptics)
                 } header: { Text("Sound ID") } footer: {
-                    Text("Boost runs a second check on every moment with wind and rumble filtered out and quiet sounds amplified, so a distant call can still be named. The location filter keeps sensitive settings from suggesting animals that don't live here. Species are auto-added when heard twice, or once with high confidence. Everyday animal sounds use Apple's built-in sound classifier and reports broad groups (e.g. “Frogs & toads”) unless the species is certain (e.g. domestic animals). Recordings can last up to 3 hours.")
+                    Text("Sensitive (the default) accepts quiet, distant calls. The model ignores loudness, so a faint call counts as much as a loud one. To keep false alarms down, an animal is only added to your Wild Index once it's heard in two overlapping moments (or once with high confidence), and the location filter drops animals that don't live here. Everyday animal sounds use Apple's built-in sound classifier and reports broad groups (e.g. “Frogs & toads”) unless the species is certain (e.g. domestic animals). Recordings can last up to 3 hours.")
                 }
 
                 Section {

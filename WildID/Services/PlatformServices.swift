@@ -176,10 +176,10 @@ enum DetectionSensitivity: String, CaseIterable, Identifiable, Codable {
     /// Minimum classifier probability for a species to be shown.
     var threshold: Float {
         switch self {
-        case .conservative: 0.60
-        case .balanced: 0.40
-        case .sensitive: 0.25
-        case .maximum: 0.15
+        case .conservative: 0.50
+        case .balanced: 0.30
+        case .sensitive: 0.15
+        case .maximum: 0.08
         }
     }
     /// Scales the minimum confidence of Apple's sound classifier classes.
@@ -204,8 +204,6 @@ final class AppSettings {
     var showScientificNames: Bool { didSet { save() } }
     var useLocationFilter: Bool { didSet { save() } }
     var detectNonBirdSounds: Bool { didSet { save() } }
-    /// Second, enhanced classification pass (wind filter + automatic gain) for faint sounds.
-    var enhanceFaintSounds: Bool { didSet { save() } }
     var hasOnboarded: Bool { didSet { save() } }
 
     private let defaults = UserDefaults.standard
@@ -218,7 +216,6 @@ final class AppSettings {
         showScientificNames = defaults.object(forKey: "sciNames") as? Bool ?? true
         useLocationFilter = defaults.object(forKey: "locFilter") as? Bool ?? true
         detectNonBirdSounds = defaults.object(forKey: "nonBird") as? Bool ?? true
-        enhanceFaintSounds = defaults.object(forKey: "enhanceFaint") as? Bool ?? true
         hasOnboarded = defaults.bool(forKey: "onboarded")
     }
 
@@ -230,7 +227,6 @@ final class AppSettings {
         defaults.set(showScientificNames, forKey: "sciNames")
         defaults.set(useLocationFilter, forKey: "locFilter")
         defaults.set(detectNonBirdSounds, forKey: "nonBird")
-        defaults.set(enhanceFaintSounds, forKey: "enhanceFaint")
         defaults.set(hasOnboarded, forKey: "onboarded")
     }
 }

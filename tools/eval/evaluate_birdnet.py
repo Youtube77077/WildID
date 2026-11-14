@@ -85,44 +85,30 @@ def decode(path):
 
 
 HOP = 48000             # 1 s, as in the app
-HPF_SOS = None
+THRESHOLDS = [0.08, 0.15, 0.3, 0.5]   # Maximum, Sensitive (default), Balanced, Conservative
 
 
-def highpass(x):
-    """4th-order Butterworth high-pass at 250 Hz (same filter as SignalEnhancer.swift)."""
-    global HPF_SOS
-    from scipy.signal import butter, sosfilt
-    if HPF_SOS is None:
-        HPF_SOS = butter(4, 250, btype="highpass", fs=48000, output="sos")
-    return sosfilt(HPF_SOS, x).astype(np.float32)
-
-
-def enhance_window(w):
-    """Python twin of SignalEnhancer.enhance: high-pass + robust automatic gain (max +36 dB)."""
-    f = highpass(w)
-    blocks = f[: len(f) // 480 * 480].reshape(-1, 480)
-    rms = np.sqrt((blocks ** 2).mean(axis=1))
-    peak = np.sort(rms)[min(len(rms) - 1, int(len(rms) * 0.995))] * 1.41
-    gain = 1.0 if peak <= 1e-7 else min(64.0, max(1.0, 0.25 / peak))
-    return np.clip(f * gain, -1, 1)
-
-
-def score_recording(audio_it, samples, max_seconds=60, raw=True, enhanced=False):
-    """Max sigmoid score per class over 3 s windows (1 s hop). With both passes enabled the
-    stronger of raw/enhanced wins per class — exactly what the app does."""
+def window_scores(audio_it, samples, max_seconds=60):
+    """Sigmoid scores per 3 s window (1 s hop) of the first 60 s: array [windows, classes]."""
     samples = samples[: int(max_seconds * 48000)]
     win = 144000
     if len(samples) < win:
         samples = np.pad(samples, (0, win - len(samples)))
-    best = None
+    rows = []
     for start in range(0, len(samples) - win + 1, HOP):
-        w = samples[start:start + win]
-        passes = ([w] if raw else []) + ([enhance_window(w)] if enhanced else [])
-        for x in passes:
-            logits = run_tflite(audio_it, x[None, :])[0]
-            p = 1 / (1 + np.exp(-logits))
-            best = p if best is None else np.maximum(best, p)
-    return best
+        logits = run_tflite(audio_it, samples[start:start + win][None, :])[0]
+        rows.append(1 / (1 + np.exp(-logits)))
+    return np.array(rows)
+
+
+def score_recording(audio_it, samples, max_seconds=60):
+    return window_scores(audio_it, samples, max_seconds).max(axis=0)
+
+
+def app_accepts(windows, threshold):
+    """The app's auto-add rule per class: above threshold in >= 2 windows, or one window >= max(0.7, t+0.2)."""
+    hits = (windows >= threshold).sum(axis=0)
+    return (hits >= 2) | (windows.max(axis=0) >= max(0.7, threshold + 0.2))
 
 
 def faint_and_windy(samples, seed):
@@ -188,11 +174,10 @@ def main():
                 continue
             if len(samples) < 48000:
                 continue
-            probs = score_recording(audio_it, samples)
-            probs_app = score_recording(audio_it, samples, enhanced=True)
-            noisy = faint_and_windy(samples[: 60 * 48000], seed=int(snd["id"]))
-            probs_noisy_raw = score_recording(audio_it, noisy)
-            probs_noisy_app = score_recording(audio_it, noisy, enhanced=True)
+            wins = window_scores(audio_it, samples)
+            probs = wins.max(axis=0)
+            noisy_wins = window_scores(audio_it, faint_and_windy(samples[: 60 * 48000], seed=int(snd["id"])))
+            probs_noisy = noisy_wins.max(axis=0)
             coords = (o.get("geojson") or {}).get("coordinates") or [None, None]
             lng, lat = coords[0], coords[1]
             when = o.get("observed_on") or dt.date.today().isoformat()
@@ -220,19 +205,19 @@ def main():
                 "rank_filtered": int(np.where(forder == truth)[0][0]) + 1,
                 "false_at_0.5": int(((probs >= 0.5) & (np.arange(len(probs)) != truth)).sum()),
                 "false_at_0.5_filtered": int(((filtered >= 0.5) & (np.arange(len(probs)) != truth)).sum()),
-                "app_truth_score": float(probs_app[truth]),
-                "app_rank_filtered": rank_of(loc_filter(probs_app), truth),
-                "app_false_at_0.25_filtered": int(((loc_filter(probs_app) >= 0.25) & others).sum()),
-                "noisy_raw_truth_score": float(probs_noisy_raw[truth]),
-                "noisy_raw_rank_filtered": rank_of(loc_filter(probs_noisy_raw), truth),
-                "noisy_app_truth_score": float(probs_noisy_app[truth]),
-                "noisy_app_rank_filtered": rank_of(loc_filter(probs_noisy_app), truth),
-                "noisy_app_false_at_0.25_filtered": int(((loc_filter(probs_noisy_app) >= 0.25) & others).sum()),
+                "noisy_truth_score": float(probs_noisy[truth]),
+                "noisy_rank_filtered": rank_of(loc_filter(probs_noisy), truth),
             })
+            keep = (occ >= 0.03) if occ is not None else np.ones_like(probs, dtype=bool)   # location filter
+            for cond, w in (("clean", wins), ("faint_wind", noisy_wins)):
+                for t in THRESHOLDS:
+                    acc = app_accepts(w, t) & (keep | (w.max(axis=0) >= 0.9))
+                    results[-1][f"{cond}_added_{t}"] = bool(acc[truth])
+                    results[-1][f"{cond}_other_species_added_{t}"] = int((acc & others).sum())
             n += 1
             r = results[-1]
             print(f"{t['name']:<32} rank {r['rank']:>4}  filtered {r['rank_filtered']:>4}  p={r['truth_score']:.2f}  "
-                  f"faint+wind raw p={r['noisy_raw_truth_score']:.2f} enhanced p={r['noisy_app_truth_score']:.2f}  top1={r['top1']}")
+                  f"faint+wind p={r['noisy_truth_score']:.2f} rank {r['noisy_rank_filtered']}  top1={r['top1']}")
 
     if not results:
         sys.exit("no recordings evaluated")
@@ -252,17 +237,16 @@ def main():
         "detected_at_0.3": float(np.mean(truth_scores >= 0.3)),
         "mean_false_species_at_0.5": float(np.mean([r["false_at_0.5"] for r in results])),
         "mean_false_species_at_0.5_filtered": float(np.mean([r["false_at_0.5_filtered"] for r in results])),
-        # As shipped now: raw + enhanced pass, 'Sensitive' threshold 0.25, location filter on.
-        "app_detected_at_0.25": float(np.mean([r["app_truth_score"] >= 0.25 for r in results])),
-        "app_top1_filtered": float(np.mean([r["app_rank_filtered"] == 1 for r in results])),
-        "app_mean_false_species_at_0.25_filtered": float(np.mean([r["app_false_at_0.25_filtered"] for r in results])),
-        # Stress test: animal at −30 dBFS under strong wind.
-        "faint_wind_detected_at_0.25_raw_only": float(np.mean([r["noisy_raw_truth_score"] >= 0.25 for r in results])),
-        "faint_wind_detected_at_0.25_with_enhancer": float(np.mean([r["noisy_app_truth_score"] >= 0.25 for r in results])),
-        "faint_wind_top1_filtered_raw_only": float(np.mean([r["noisy_raw_rank_filtered"] == 1 for r in results])),
-        "faint_wind_top1_filtered_with_enhancer": float(np.mean([r["noisy_app_rank_filtered"] == 1 for r in results])),
-        "faint_wind_mean_false_species_at_0.25_filtered": float(np.mean([r["noisy_app_false_at_0.25_filtered"] for r in results])),
+        "faint_wind_top1_filtered": float(np.mean([r["noisy_rank_filtered"] == 1 for r in results])),
+        "faint_wind_top5_filtered": float(np.mean([r["noisy_rank_filtered"] <= 5 for r in results])),
     }
+    sweep = []
+    for cond in ("clean", "faint_wind"):
+        for t in THRESHOLDS:
+            sweep.append({"condition": cond, "threshold": t,
+                          "true_species_added": float(np.mean([r[f"{cond}_added_{t}"] for r in results])),
+                          "other_species_added_per_recording": float(np.mean([r[f"{cond}_other_species_added_{t}"] for r in results]))})
+    summary["threshold_sweep"] = sweep
     os.makedirs(args.out, exist_ok=True)
     json.dump({"summary": summary, "results": results}, open(os.path.join(args.out, "birdnet_eval.json"), "w"), indent=1)
     with open(os.path.join(args.out, "birdnet_eval.md"), "w") as fh:
@@ -274,14 +258,20 @@ def main():
             if isinstance(v, float):
                 fh.write(f"| {k} | {v:.1%} |\n" if "mean" not in k else f"| {k} | {v:.2f} |\n")
         fh.write("\nScores are the maximum over 3 s windows (1 s hop) of the first 60 s, as in the app. "
-                 "`app_*` rows use the app's current pipeline (raw + enhanced pass, threshold 0.25, location filter). "
-                 "`faint_wind_*` rows are a stress test: each recording is turned 30 dB quieter (peak −30 dBFS) and mixed "
-                 "with strong synthetic wind and hiss, then scored without (`raw_only`) and with the enhancer. "
-                 "Recordings may contain other species, so 'false' detections include real background birds.\n\n")
-        fh.write("## Per recording\n\n| Species | Rank | Rank (filtered) | p(true) | Faint+wind p (raw) | Faint+wind p (enhanced) | Top-1 | License |\n|---|---|---|---|---|---|---|---|\n")
+                 "`faint_wind` is a stress test: each recording is turned 30 dB quieter (peak −30 dBFS) and mixed with "
+                 "strong synthetic wind and hiss. Recordings may contain other species, so 'other species' include real "
+                 "background animals, not only mistakes.\n\n")
+        fh.write("## Sensitivity settings (app rule: ≥ 2 windows above threshold, or one ≥ max(0.7, t+0.2); location filter on)\n\n"
+                 "| Condition | Threshold | True species added | Other species added per recording |\n|---|---|---|---|\n")
+        names = {0.08: "Maximum", 0.15: "Sensitive (default)", 0.3: "Balanced", 0.5: "Conservative"}
+        for row in sweep:
+            fh.write(f"| {row['condition']} | {row['threshold']} {names[row['threshold']]} | {row['true_species_added']:.1%} | "
+                     f"{row['other_species_added_per_recording']:.2f} |\n")
+        fh.write("\n")
+        fh.write("## Per recording\n\n| Species | Rank | Rank (filtered) | p(true) | Faint+wind p | Faint+wind rank | Top-1 | License |\n|---|---|---|---|---|---|---|---|\n")
         for r in results:
-            fh.write(f"| *{r['species']}* | {r['rank']} | {r['rank_filtered']} | {r['truth_score']:.2f} | {r['noisy_raw_truth_score']:.2f} | "
-                     f"{r['noisy_app_truth_score']:.2f} | {r['top1'].split('_')[-1]} | {r['license']} |\n")
+            fh.write(f"| *{r['species']}* | {r['rank']} | {r['rank_filtered']} | {r['truth_score']:.2f} | {r['noisy_truth_score']:.2f} | "
+                     f"{r['noisy_rank_filtered']} | {r['top1'].split('_')[-1]} | {r['license']} |\n")
     print(json.dumps(summary, indent=1))
 
 
