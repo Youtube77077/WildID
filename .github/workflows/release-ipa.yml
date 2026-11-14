@@ -1,4 +1,4 @@
-name: Publish .ipa (latest build)
+name: Build WildID.ipa
 on:
   push:
     branches: ['**']
@@ -34,12 +34,18 @@ jobs:
           cp -R build/device/Build/Products/Release-iphoneos/WildID.app Payload/
           zip -qry WildID.ipa Payload
           du -h WildID.ipa
-      - name: Publish as the "latest-build" pre-release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WildID-ipa
+          path: WildID.ipa
+          retention-days: 90
+      - name: Commit dist/WildID.ipa (only for commits tagged [ipa])
+        if: contains(github.event.head_commit.message, '[ipa]')
         run: |
-          NOTES="Unsigned WildID build from ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}.
-          iPhones only install signed apps: open this .ipa with Sideloadly or AltStore and sign it with your own Apple ID (free), or build from Xcode (see README)."
-          gh release delete latest-build --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest-build WildID.ipa --target "$GITHUB_SHA" --prerelease \
-            --title "WildID latest build (${GITHUB_SHA::7})" --notes "$NOTES"
+          mkdir -p dist && cp WildID.ipa dist/WildID.ipa
+          printf "Built from %s (%s)\nUnsigned: sign with Sideloadly/AltStore using your Apple ID.\n" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%d)" > dist/BUILD_INFO.txt
+          git config user.name "wildid-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist
+          git commit -q -m "Update dist/WildID.ipa [automated]" || exit 0
+          for i in 1 2 3 4; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}" && break; sleep $((i*10)); done
