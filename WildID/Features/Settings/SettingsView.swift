@@ -68,6 +68,12 @@ struct SettingsView: View {
 
                 Section {
                     NavigationLink { StorageView() } label: { Label("Storage & recordings", systemImage: "internaldrive") }
+                    NavigationLink { OfflineAnimalsView() } label: {
+                        VStack(alignment: .leading) {
+                            Label("My offline animals", systemImage: "arrow.down.circle")
+                            Text("Download before you go!").font(.caption).foregroundStyle(Theme.secondaryText)
+                        }
+                    }
                 }
 
                 Section {
@@ -161,6 +167,37 @@ struct StorageView: View {
         clipsSize = FileStore.directorySize(FileStore.clipsDirectory)
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         cacheSize = FileStore.directorySize(caches)
+    }
+}
+
+struct OfflineAnimalsView: View {
+    private var offline: OfflineStore { OfflineStore.shared }
+
+    var body: some View {
+        List {
+            Section {
+                if offline.saved.isEmpty {
+                    Text("Open any species page and tap \(Image(systemName: "arrow.down.circle")) to keep its description, photos and sounds on this iPhone for places without a connection.")
+                        .foregroundStyle(Theme.secondaryText)
+                }
+                ForEach(offline.saved) { s in
+                    NavigationLink(value: s) {
+                        HStack(spacing: 12) {
+                            SpeciesThumb(url: s.photoURL, group: s.group, size: 44, corner: 8)
+                            VStack(alignment: .leading) {
+                                Text(s.commonName).font(.headline)
+                                Text(s.scientificName).font(.caption).italic().foregroundStyle(Theme.secondaryText)
+                            }
+                        }
+                    }
+                }
+                .onDelete { idx in idx.map { offline.saved[$0] }.forEach(offline.remove) }
+            } footer: {
+                Text("Offline sounds use \(FileStore.formatted(offline.totalSize)). Sound ID itself runs fully on your iPhone.")
+            }
+        }
+        .navigationTitle("My offline animals")
+        .wildDestinations()
     }
 }
 

@@ -10,6 +10,7 @@ struct SpeciesProfileView: View {
     @Environment(CollectionManager.self) private var collection
     @Environment(AppSettings.self) private var settings
     @State private var model = SpeciesProfileModel()
+    private var offline: OfflineStore { OfflineStore.shared }
     @State private var photoIndex = 0
     @State private var showAllSounds = false
     @State private var expandedTopics: Set<String> = []
@@ -57,7 +58,19 @@ struct SpeciesProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) { Text(name).font(.headline).lineLimit(1) }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if model.taxon != nil, !species.isGroupLevel {
+                    Button {
+                        Task { await offline.download(species, model: model, near: location.activePlace?.coordinate) }
+                    } label: {
+                        if offline.downloading.contains(species.id) {
+                            ProgressView()
+                        } else {
+                            Image(systemName: offline.isSaved(resolvedRef) || offline.isSaved(species) ? "checkmark.icloud.fill" : "arrow.down.circle")
+                        }
+                    }
+                    .accessibilityLabel(offline.isSaved(resolvedRef) ? "Saved for offline use" : "Download for offline use")
+                }
                 if let id = model.taxon?.id, let url = URL(string: "https://www.inaturalist.org/taxa/\(id)") {
                     ShareLink(item: url, subject: Text(name)) { Image(systemName: "square.and.arrow.up") }
                 }

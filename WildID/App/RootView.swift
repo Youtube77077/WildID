@@ -72,10 +72,39 @@ struct RootView: View {
             OnboardingView()
         }
         .task {
+            applyLaunchArguments()
             location.start()
         }
         .task(id: location.activePlace?.name) {
             await nearby.load(for: location.activePlace)
+        }
+    }
+
+    /// Debug/CI launch arguments used by the screenshot workflow, e.g.
+    /// `-wildid-tab explore -wildid-skip-onboarding -wildid-species "Erithacus rubecula"`.
+    private func applyLaunchArguments() {
+        let args = ProcessInfo.processInfo.arguments
+        func value(_ flag: String) -> String? {
+            guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
+            return args[i + 1]
+        }
+        if args.contains("-wildid-skip-onboarding") { settings.hasOnboarded = true }
+        switch value("-wildid-tab") {
+        case "identify": router.tab = .identify
+        case "map": router.tab = .map
+        case "index": router.tab = .wildIndex
+        case "explore": router.tab = .explore
+        default: break
+        }
+        if let name = value("-wildid-species") {
+            router.presentedSpecies = SpeciesRef(scientificName: name, commonName: name, group: .other)
+        }
+        switch value("-wildid-open") {
+        case "sound": router.showSoundID = true
+        case "photo": router.showPhotoID = true
+        case "guided": router.showGuidedID = true
+        case "settings": router.showSettings = true
+        default: break
         }
     }
 }

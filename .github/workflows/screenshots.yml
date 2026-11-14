@@ -1,0 +1,76 @@
+name: Simulator screenshots
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'WildID/**'
+      - '.github/workflows/screenshots.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      BUNDLE: io.github.youtube77077.wildid
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project WildID.xcodeproj -scheme WildID -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/sim/Build/Products/Debug-iphonesimulator/WildID.app
+      - name: Boot, install, grant permissions, set location
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for k,v in d.items() if 'iOS-18-5' in k for x in v if x['name']=='iPhone 16 Pro'))")
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "09:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$UDID" build/sim/Build/Products/Debug-iphonesimulator/WildID.app
+          for s in location microphone photos camera; do xcrun simctl privacy "$UDID" grant $s "$BUNDLE" || true; done
+          xcrun simctl location "$UDID" set 52.4588,5.0307
+      - name: Capture screens
+        run: |
+          mkdir -p docs/screenshots
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE" -wildid-skip-onboarding "$@"
+            sleep ${WAIT:-14}
+            xcrun simctl io "$UDID" screenshot "docs/screenshots/$name.png"
+          }
+          WAIT=20 shot 01-home
+          shot 02-identify -wildid-tab identify
+          WAIT=20 shot 03-map -wildid-tab map
+          shot 04-wild-index -wildid-tab index
+          WAIT=20 shot 05-explore -wildid-tab explore
+          WAIT=22 shot 06-species -wildid-species "Erithacus rubecula"
+          WAIT=22 shot 07-species-parakeet -wildid-species "Myiopsitta monachus"
+          WAIT=12 shot 08-sound-id -wildid-open sound
+          shot 09-step-by-step -wildid-open guided
+          shot 10-photo-id -wildid-open photo
+          shot 11-settings -wildid-open settings
+          xcrun simctl terminate "$UDID" "$BUNDLE" || true
+          xcrun simctl launch "$UDID" "$BUNDLE"
+          sleep 6
+          xcrun simctl io "$UDID" screenshot docs/screenshots/00-onboarding-or-home.png
+          ls -la docs/screenshots
+      - name: Commit screenshots to this branch
+        run: |
+          git config user.name "wildid-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -q -m "Update simulator screenshots [automated]"
+          for i in 1 2 3 4; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}" && break; sleep $((i*10)); done

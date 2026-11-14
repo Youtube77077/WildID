@@ -35,17 +35,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee build-device.log | grep -E "error:|warning: .*(deprecated|unused)|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build-device.log
-      - name: Boot simulator
-        run: xcrun simctl boot "iPhone 16" || true
       - name: Unit tests (iOS Simulator)
-        timeout-minutes: 30
+        timeout-minutes: 25
         run: |
           set -o pipefail
           xcodebuild -project WildID.xcodeproj -scheme WildID \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' -derivedDataPath build/sim \
-            -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300 \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee test.log | grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" || true
-          grep -q "TEST SUCCEEDED" test.log
+            -test-timeouts-enabled YES -maximum-test-execution-time-allowance 240 -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee test.log | grep -E --line-buffered "error:|Test Case|Executed|TEST (SUCCEEDED|FAILED)|Testing started|Restarting" || true
+          grep -q "TEST SUCCEEDED" test.log || { echo "---- tail of test log ----"; tail -n 120 test.log; exit 1; }
       - name: Package unsigned .ipa (for sideloading tools that re-sign)
         if: success()
         run: |

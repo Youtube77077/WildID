@@ -38,7 +38,7 @@ final class AudioPlayer {
         stop()
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)
-        let item = AVPlayerItem(url: url)
+        let item = AVPlayerItem(url: OfflineStore.shared.localURL(for: url) ?? url)
         let p = AVPlayer(playerItem: item)
         player = p
         currentID = id
