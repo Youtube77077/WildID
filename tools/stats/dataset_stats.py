@@ -86,6 +86,21 @@ def birdnet_breakdown(labels_path):
     return {"total_classes": len(labels), "non_event_classes": nonevent, "by_class": dict(sorted(counts.items(), key=lambda kv: -kv[1]))}
 
 
+# Approximate numbers of described (named) living species, from standard references.
+WORLD = {
+    "Birds": (11_250, "IOC World Bird List"),
+    "Mammals": (6_800, "Mammal Diversity Database"),
+    "Reptiles": (12_500, "The Reptile Database"),
+    "Amphibians": (8_900, "AmphibiaWeb"),
+    "Fish (ray-finned + sharks/rays)": (37_000, "Eschmeyer's Catalog of Fishes"),
+    "Insects": (1_000_000, "commonly cited estimate"),
+    "Arachnids": (110_000, "World Arachnid Catalog et al."),
+    "Molluscs": (85_000, "MolluscaBase (living)"),
+    "Crustaceans": (70_000, "WoRMS"),
+    "All animals": (1_500_000, "Catalogue of Life / common estimate"),
+}
+
+
 def main():
     out = {"generated": time.strftime("%Y-%m-%d"), "groups": []}
     for name, ids, gnames in GROUPS:
@@ -96,7 +111,6 @@ def main():
         row["species_with_observations"] = inat_total("observations/species_counts", taxon_id=tid, verifiable="true", hrank="species", lrank="species")
         row["species_with_photos"] = inat_total("observations/species_counts", taxon_id=tid, photos="true", verifiable="true", hrank="species", lrank="species")
         row["species_with_sounds"] = inat_total("observations/species_counts", taxon_id=tid, sounds="true", verifiable="true", hrank="species", lrank="species")
-        row["gbif_accepted_species"] = gbif_species_count(gnames if name != "Reptiles" else ["Reptilia"]) or gbif_species_count(gnames[1:])
         print(json.dumps(row), flush=True)
         out["groups"].append(row)
     labels = os.path.join(os.path.dirname(__file__), "..", "..", "WildID", "Resources", "Models", "BirdNET_Labels_en.txt")
@@ -106,9 +120,13 @@ def main():
     json.dump(out, open("tools/stats/reports/dataset_stats.json", "w"), indent=1)
     with open("tools/stats/reports/dataset_stats.md", "w") as fh:
         fh.write(f"# WildID data coverage ({out['generated']})\n\n")
-        fh.write("| Group | Species in app index (iNat) | Subspecies | Species with photos | Species with sounds | Species known to science (GBIF) |\n|---|---|---|---|---|---|\n")
+        fh.write("| Group | Species in app index (iNat) | Subspecies (\"races\") | Species with photos | Species with sounds | Described species worldwide (approx.) | Index coverage |\n|---|---|---|---|---|---|---|\n")
         for r in out["groups"]:
-            fh.write(f"| {r['group']} | {r['inat_species']:,} | {r['inat_subspecies']:,} | {r['species_with_photos']:,} | {r['species_with_sounds']:,} | {r['gbif_accepted_species']:,} |\n")
+            world, src = WORLD.get(r["group"], (0, ""))
+            cov = f"{min(100, 100 * r['inat_species'] / world):.0f}%" if world else "—"
+            fh.write(f"| {r['group']} | {r['inat_species']:,} | {r['inat_subspecies']:,} | {r['species_with_photos']:,} | {r['species_with_sounds']:,} | ~{world:,} ({src}) | {cov} |\n")
+        fh.write("\nEstimates of all animal species on Earth including undescribed ones are ~7.8 million (Mora et al. 2011). "
+                 "Search also falls back to the GBIF backbone for names iNaturalist lacks (mostly without photos).\n")
         b = out["birdnet"]
         fh.write(f"\n## Sound ID model (BirdNET V2.4)\n\n{b['total_classes']:,} classes ({b['non_event_classes']} non-animal/event classes).\n\n")
         for k, v in b["by_class"].items():
