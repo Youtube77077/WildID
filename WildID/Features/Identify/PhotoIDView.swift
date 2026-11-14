@@ -212,6 +212,8 @@ struct PhotoIDView: View {
     @State private var loadingCandidates = false
     @State private var confirmSpecies: SpeciesRef?
     @State private var analyzed = false
+    @State private var speciesGuesses: [(SpeciesPhotoClassifier.Guess, SpeciesRef)] = []
+    @State private var classifyingSpecies = false
 
     @State private var toastSpecies: SpeciesRef?
     private let api = INaturalistAPI()
@@ -228,6 +230,8 @@ struct PhotoIDView: View {
                                        message: "Try a closer, sharper photo where the animal fills more of the frame — or use Step by Step.")
                     }
                     if !matches.isEmpty { matchChips }
+                    if classifyingSpecies { HStack { ProgressView(); Text("Matching species…").foregroundStyle(Theme.secondaryText) } }
+                    if !speciesGuesses.isEmpty { speciesSection }
                     if selected != nil { candidatesList }
                     Label("Photo ID uses Apple's built-in on-device image recognition to find the kind of animal, then lists species of that group recorded near you (iNaturalist) so you can compare photos and confirm. It does not guess a species from a poor photo.",
                           systemImage: "info.circle")
@@ -315,6 +319,33 @@ struct PhotoIDView: View {
         }
     }
 
+    private var speciesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Species match").font(.wildTitle)
+            Text("On-device species model (\(selected?.group == .insects ? "1,021 insects" : "965 birds")). Check the photos — a close look beats any model.")
+                .font(.subheadline).foregroundStyle(Theme.secondaryText)
+            ForEach(speciesGuesses, id: \.0.id) { guess, ref in
+                HStack(spacing: 12) {
+                    NavigationLink(value: ref) {
+                        HStack(spacing: 12) {
+                            SpeciesThumb(url: ref.photoURL, group: ref.group, size: 60, corner: 8)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(ref.commonName).font(.headline).foregroundStyle(.primary)
+                                Text(ref.scientificName).font(.caption).italic().foregroundStyle(Theme.secondaryText)
+                                ConfidenceMeter(value: guess.confidence)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Button("This one") { confirmSpecies = ref }
+                        .buttonStyle(.borderedProminent).controlSize(.small)
+                }
+                Divider()
+            }
+        }
+    }
+
     private var candidatesList: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Which one is it?").font(.wildTitle)
@@ -343,6 +374,7 @@ struct PhotoIDView: View {
         matches = []
         selected = nil
         candidates = []
+        speciesGuesses = []
         analyzed = false
         Task {
             analyzing = true
@@ -355,7 +387,23 @@ struct PhotoIDView: View {
 
     private func select(_ m: PhotoMatch) {
         selected = m
+        speciesGuesses = []
         Task { await loadCandidates(for: m) }
+        Task { await classifySpecies(for: m) }
+    }
+
+    private func classifySpecies(for m: PhotoMatch) async {
+        guard let image, let kind = SpeciesPhotoClassifier.kind(for: m.group),
+              let classifier = SpeciesPhotoClassifier(kind: kind) else { return }
+        classifyingSpecies = true
+        defer { classifyingSpecies = false }
+        let guesses = await classifier.classify(image).filter { $0.confidence >= 0.05 }
+        var out: [(SpeciesPhotoClassifier.Guess, SpeciesRef)] = []
+        for g in guesses {
+            let ref = await TaxonResolver.shared.resolve(scientificName: g.scientificName, fallbackCommonName: g.scientificName, fallbackGroup: m.group)
+            out.append((g, ref))
+        }
+        speciesGuesses = out
     }
 
     private func loadCandidates(for m: PhotoMatch) async {

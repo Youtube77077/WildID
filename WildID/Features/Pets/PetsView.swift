@@ -309,7 +309,7 @@ struct LevelArc: Shape {
         let r = rect.width / 2
         p.addArc(center: center, radius: r, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: false)
         let angle = Angle.degrees(180 + 180 * min(1, max(0, fraction)))
-        let dot = CGPoint(x: center.x + r * cos(angle.radians), y: center.y + r * sin(angle.radians))
+        let dot = CGPoint(x: center.x + r * CGFloat(Foundation.cos(angle.radians)), y: center.y + r * CGFloat(Foundation.sin(angle.radians)))
         p.addEllipse(in: CGRect(x: dot.x - 6, y: dot.y - 6, width: 12, height: 12))
         return p
     }

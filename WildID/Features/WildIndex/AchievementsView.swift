@@ -31,7 +31,7 @@ enum AchievementEngine {
         let abroad = allCatches.first { $0.countryCode != nil && $0.countryCode != homeCountry }
         let soundSpecies = entries.filter { $0.methods.contains(.sound) }
         let photoSpecies = entries.filter { $0.methods.contains(.photo) }
-        let rare = entries.filter { $0.rarity == .rare || $0.rarity == .veryRare }
+        let rare = entries.filter { ($0.rarity ?? .common) >= .rare }
         let threatened = entries.filter { ["VU", "EN", "CR"].contains($0.conservationCode ?? "") }
         let groups = Set(entries.map(\.group)).subtracting([.other])
         let night = allCatches.first { (Calendar.current.component(.hour, from: $0.date) >= 22) || Calendar.current.component(.hour, from: $0.date) < 4 }
@@ -52,8 +52,13 @@ enum AchievementEngine {
                         progress: min(1, Double(photoSpecies.count) / 10), unlockedAt: nil),
             Achievement(id: "abroad", title: "Globetrotter", detail: "Make a discovery in another country", symbol: "airplane",
                         progress: abroad == nil ? 0 : 1, unlockedAt: abroad?.date),
-            Achievement(id: "rare", title: "Lucky Find", detail: "Catch a locally rare species", symbol: "sparkle.magnifyingglass",
+            Achievement(id: "rare", title: "Lucky Find", detail: "Catch a Rare (or rarer) species", symbol: "sparkle.magnifyingglass",
                         progress: rare.isEmpty ? 0 : 1, unlockedAt: rare.map(\.firstCaughtAt).min()),
+            Achievement(id: "legendary", title: "Legend", detail: "Catch a Legendary animal", symbol: "crown.fill",
+                        progress: entries.contains { $0.rarity == .legendary } ? 1 : 0,
+                        unlockedAt: entries.filter { $0.rarity == .legendary }.map(\.firstCaughtAt).min()),
+            Achievement(id: "level10", title: "Best Friends", detail: "Raise a companion to level 10", symbol: "heart.fill",
+                        progress: min(1, Double(entries.map(\.level).max() ?? 1) / 10), unlockedAt: nil),
             Achievement(id: "threatened", title: "Guardian", detail: "Record a threatened species (IUCN VU, EN or CR)", symbol: "shield.lefthalf.filled",
                         progress: threatened.isEmpty ? 0 : 1, unlockedAt: threatened.map(\.firstCaughtAt).min()),
             Achievement(id: "dawn", title: "Dawn Chorus", detail: "Catch an animal between 4 and 7 am", symbol: "sunrise.fill",
