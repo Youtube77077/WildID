@@ -181,16 +181,14 @@ final class SpectrogramUIView: UIView {
         layer.minificationFilter = .trilinear
         isOpaque = true
         rebuildLUT()
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: SpectrogramUIView, _: UITraitCollection) in
+            view.rebuildLUT()
+            view.lastColumns = -1
+            view.render(force: true)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        rebuildLUT()
-        lastColumns = -1
-        render(force: true)
-    }
 
     /// Light mode: pale paper background with dark marks. Dark mode: inverted.
     private func rebuildLUT() {

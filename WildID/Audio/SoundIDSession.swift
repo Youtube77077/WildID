@@ -82,12 +82,12 @@ final class InferencePipeline: @unchecked Sendable {
             lock.withLock { busy = false }
             return
         }
-        let (classifier, threshold, useFilter) = job
+        let (model, minConfidence, filter) = job
         let window = ring.snapshot()
         let windowStart = Double(endPosition) / AudioCaptureEngine.analysisSampleRate - 3.0
         queue.async { [weak self] in
             let predictions = (try? window.withUnsafeBufferPointer {
-                try classifier.classify($0, threshold: threshold, useLocationFilter: useFilter)
+                try model.classify($0, threshold: minConfidence, useLocationFilter: filter)
             }) ?? []
             guard let self else { return }
             self.lock.withLock { self.busy = false }
@@ -251,6 +251,8 @@ final class SoundIDSession {
         startedAt = Date()
         placeName = location?.activePlace?.name
         state = .recording
+        AudioPlayer.shared.stop()
+        AudioPlayer.shared.recordingActive = true
         UIApplication.shared.isIdleTimerDisabled = true
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { @Sendable [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -301,6 +303,7 @@ final class SoundIDSession {
         apple?.finish()
         self.capture = nil
         UIApplication.shared.isIdleTimerDisabled = false
+        AudioPlayer.shared.recordingActive = false
         location?.setPrecise(false)
         locationAppliedToFilter = false
         elapsed = duration

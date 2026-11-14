@@ -211,6 +211,36 @@ struct INaturalistAPI {
         return try await http.get(INatPage<INatSpeciesCount>.self, from: url, maxAge: 60 * 60 * 12)
     }
 
+    /// Species of a given higher taxon observed near a point (for Photo ID / Step by Step).
+    func speciesCountsInTaxon(_ taxonID: Int, near coordinate: CLLocationCoordinate2D, radiusKm: Double = 50,
+                              months: [Int]? = nil, perPage: Int = 40) async throws -> [INatSpeciesCount] {
+        let url = URL.build("\(Self.base)/observations/species_counts", [
+            "lat": String(format: "%.4f", coordinate.latitude),
+            "lng": String(format: "%.4f", coordinate.longitude),
+            "radius": String(Int(radiusKm)),
+            "taxon_id": String(taxonID),
+            "quality_grade": "research",
+            "month": months.map { $0.map(String.init).joined(separator: ",") },
+            "per_page": String(perPage),
+            "locale": Self.locale,
+        ])
+        return try await http.get(INatPage<INatSpeciesCount>.self, from: url, maxAge: 60 * 60 * 12).results
+    }
+
+    /// Most observed species within a taxon worldwide (fallback when location is unknown).
+    func popularSpecies(inTaxon taxonID: Int, perPage: Int = 30) async throws -> [INatTaxon] {
+        let url = URL.build("\(Self.base)/taxa", [
+            "taxon_id": String(taxonID),
+            "rank": "species",
+            "is_active": "true",
+            "order_by": "observations_count",
+            "order": "desc",
+            "per_page": String(perPage),
+            "locale": Self.locale,
+        ])
+        return try await http.get(INatPage<INatTaxon>.self, from: url, maxAge: 60 * 60 * 24 * 7).results
+    }
+
     /// Recent observations with photos in a map region. Sensitive species and private
     /// locations are excluded (geoprivacy/taxon_geoprivacy=open).
     func observations(in region: (swLat: Double, swLng: Double, neLat: Double, neLng: Double),

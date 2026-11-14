@@ -34,12 +34,7 @@ final class AudioCaptureEngine: @unchecked Sendable {
     deinit { observers.forEach(NotificationCenter.default.removeObserver) }
 
     static func requestPermission() async -> Bool {
-        if #available(iOS 17.0, *) {
-            return await AVAudioApplication.requestRecordPermission()
-        }
-        return await withCheckedContinuation { cont in
-            AVAudioSession.sharedInstance().requestRecordPermission { cont.resume(returning: $0) }
-        }
+        await AVAudioApplication.requestRecordPermission()
     }
 
     func start(writingTo url: URL) throws {
