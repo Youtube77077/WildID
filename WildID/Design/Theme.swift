@@ -6,8 +6,12 @@ enum Theme {
     static let moss = Color("Moss")                  // primary brand green
     static let mossDeep = Color(red: 0.13, green: 0.36, blue: 0.24)
     static let fern = Color(red: 0.36, green: 0.62, blue: 0.40)
-    static let lichen = Color(red: 0.92, green: 0.95, blue: 0.92)
-    static let sunlight = Color(red: 1.00, green: 0.87, blue: 0.35) // "new detection" highlight
+    /// Pale green surface (adapts to dark mode so text stays readable).
+    static let lichen = Color(light: Color(red: 0.92, green: 0.95, blue: 0.92), dark: Color(red: 0.13, green: 0.17, blue: 0.14))
+    static let sunlight = Color(red: 1.00, green: 0.87, blue: 0.35) // brand yellow (toasts, badges)
+    /// Row highlight for newly detected species.
+    static let newHighlight = Color(light: Color(red: 1.00, green: 0.87, blue: 0.35).opacity(0.55),
+                                    dark: Color(red: 0.55, green: 0.42, blue: 0.05).opacity(0.75))
     static let sunlightSoft = Color(red: 1.00, green: 0.95, blue: 0.70)
     static let ember = Color(red: 0.66, green: 0.20, blue: 0.10)    // record/stop button
 
@@ -25,6 +29,12 @@ enum Theme {
     static let cornerRadius: CGFloat = 16
     static let smallRadius: CGFloat = 10
     static let gutter: CGFloat = 16
+}
+
+extension Color {
+    init(light: Color, dark: Color) {
+        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
+    }
 }
 
 extension Font {

@@ -244,7 +244,7 @@ struct DetectionCard: View {
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.vertical, 12)
-        .background(isHighlighted ? Theme.sunlight.opacity(0.55) : Color.clear)
+        .background(isHighlighted ? Theme.newHighlight : Color.clear)
         .animation(.easeInOut(duration: 0.6), value: isHighlighted)
         .contentShape(Rectangle())
     }
