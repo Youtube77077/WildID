@@ -7,9 +7,27 @@
 - **Map** – Apple Maps (MapKit) with your catches as photo pins (clustered), recent community sightings, an all-observations layer, species ranges and satellite view.
 - **Explore** – animals recorded near you this season (or anywhere you pick on the map), plus a worldwide search across every animal on iNaturalist.
 - **Species pages** – photo gallery, sounds (Xeno-canto + iNaturalist) with recordist and license, weekly seasonality near you, range map vs. occurrence records (kept separate), size/mass/lifespan (Wikidata), description/habitat/diet/behaviour/reproduction/conservation (Wikipedia), full taxonomy, conservation status, similar species, sources.
-- **Photo ID** and **Step by Step** guided identification.
+- **Pet Index** – every animal you catch also becomes a companion: XP, levels 1–50, rarity tiers from **Common to Legendary** (based on how rarely it's recorded where you found it, boosted for threatened species), nicknames, favourites, a game-style card and detail page, and a slot for a 3D model. No battles, nothing to buy, and XP can't be farmed (see below).
+- **Photo ID** (species-level for 965 birds and 1,021 insects when the photo models are built; group-level + local candidates for everything else) and **Step by Step** guided identification.
+- **Survives reinstall** – your catches, XP, levels and nicknames are kept in this iPhone's Keychain (device-only, no account, never uploaded). Delete the app, install it again on the same phone → everything is back. Anyone else's phone starts empty.
 
-> WildID needs an internet connection for species data, photos and maps (as requested: "only work online"). Your Wild Index, catches, clips, saved recordings and previously opened species pages stay available offline.
+> WildID needs an internet connection for species data, photos and maps. Your Wild Index, catches, clips, saved recordings and previously opened species pages stay available offline.
+
+### Pet Index rules (fair play)
+
+| Tier | Local records within 50 km | First catch | Each repeat catch |
+|---|---|---|---|
+| Common | ≥ 500 | +100 XP | +20 XP |
+| Uncommon | 100–499 | +150 XP | +30 XP |
+| Rare | 20–99 (or IUCN Vulnerable) | +250 XP | +45 XP |
+| Epic | 5–19 (or Endangered) | +400 XP | +70 XP |
+| Legendary | < 5 (or Critically Endangered) | +700 XP | +100 XP |
+
+Repeat catches earn XP at most once per hour per animal and 3 times a day; Step by Step earns half and manual sightings a quarter (they can't be verified); XP time is recorded when it is granted, so backdating a sighting doesn't help; Sound ID adds each species once per session. Levels: 2 at 75 XP, 5 at 750, 10 at 3,375 … up to 50. Your **Explorer level** sums all companions.
+
+### 3D models
+
+The Pet Index loads a real 3D model (`models3d/<genus_species>.usdz`, listed in `models3d/index.json`) the moment one is published to this repo — no app update needed. Until then it shows a clean "3D model coming soon" placeholder (no low-quality auto-generated models).
 
 ---
 
@@ -39,11 +57,36 @@ You need a **Mac with Xcode 16 or newer** (free from the Mac App Store) and an *
 
 Requirements: iOS 17.0 or later, iPhone. App size ≈ 50 MB (most of it is the BirdNET sound model).
 
-### Alternative: unsigned build from CI
+### Alternative: install the .ipa (no Mac needed for building)
 
-Every push builds the app on GitHub Actions (`iOS build & tests`). The run uploads `WildID-unsigned.ipa` as an artifact. That file is **not installable as-is**; tools such as Sideloadly or AltStore can re-sign it with your Apple ID. Xcode (above) is the reliable route.
+Every push builds **`WildID.ipa`** and publishes it on this repo's **Releases** page as *"WildID latest build"*. iPhones only run apps signed for them, so the .ipa must be signed with your Apple ID once:
+
+1. Download `WildID.ipa` from the *latest-build* release.
+2. Install **Sideloadly** (Windows/Mac) or **AltStore**, connect your iPhone, drag in the .ipa, enter your Apple ID → Start. (Use the same Apple ID every time so your saved catches stay readable after reinstalling.)
+3. On the iPhone: *Settings › General › VPN & Device Management* → trust your Apple ID; enable *Developer Mode* if asked.
+
+Free Apple IDs need a refresh every 7 days (Sideloadly/AltStore can do it); a paid developer account lasts a year.
 
 ---
+
+## How many animals?
+
+Measured from the live sources by `tools/stats/dataset_stats.py` (2026-11-14):
+
+| Group | Species you can open in WildID | Subspecies ("races") | Species with photos | Species with sound recordings | Described species in the world (approx.) |
+|---|---|---|---|---|---|
+| Birds | 11,387 | 20,244 | 11,290 | 7,625 | ~11,250 |
+| Mammals | 6,870 | 4,521 | 4,813 | 1,107 | ~6,800 |
+| Reptiles | 12,680 | 2,993 | 9,732 | 195 | ~12,500 |
+| Amphibians | 9,029 | 196 | 6,359 | 2,000 | ~8,900 |
+| Fish | 37,068 | 304 | 18,727 | 72 | ~37,000 |
+| Insects | 517,282 | 36,180 | 235,963 | 2,732 | ~1,000,000 |
+| Arachnids | 69,848 | 898 | 18,354 | 61 | ~110,000 |
+| Molluscs | 50,768 | 2,239 | 21,775 | 32 | ~85,000 |
+| Crustaceans | 21,329 | 382 | 9,734 | 31 | ~70,000 |
+| **All animals** | **776,090** | **68,540** | **350,731** | **13,885** | **~1,500,000** |
+
+Search falls back to the GBIF backbone for named species iNaturalist doesn't have (usually without photos). **Sound ID** names 6,509 animal species: 6,420 birds, 41 amphibians, 40 insects, 7 mammals (plus Apple's built-in groups such as dogs, cats, frogs, crickets, owls).
 
 ## How identification works (and its limits)
 
