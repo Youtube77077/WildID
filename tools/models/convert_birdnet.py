@@ -121,37 +121,46 @@ def rewrite_rfft(gd, in_name, sample_input):
         return nd
 
     for r in rffts:
-        abs_nodes = [c for c in cons.get(r.name, []) if c.op == "ComplexAbs"]
-        others = [c for c in cons.get(r.name, []) if c.op != "ComplexAbs"]
-        if others or not abs_nodes:
-            raise SystemExit(f"Unsupported RFFT consumers for {r.name}: {[(c.op, c.name) for c in cons.get(r.name, [])]}")
+        users = cons.get(r.name, [])
+        supported = [c for c in users if c.op in ("ComplexAbs", "Cast", "Real")]
+        if len(supported) != len(users) or not users:
+            raise SystemExit(f"Unsupported RFFT consumers for {r.name}: {[(c.op, c.name) for c in users]}")
         L = shapes[r.name][-1]
         F = fft_lens[r.name]
         K = F // 2 + 1
         n = np.arange(L)[:, None].astype(np.float64)
         k = np.arange(K)[None, :].astype(np.float64)
         valid = (n < F).astype(np.float64)
-        # Scale bases by 1/S so squared terms stay inside float16 range; undo after sqrt.
-        S = float(F)
-        cos_b = (np.cos(2 * np.pi * n * k / F) * valid) / S
-        sin_b = (np.sin(2 * np.pi * n * k / F) * valid) / S
         base = r.name + "_dft"
+        # TF's rfft uses exp(-i*2*pi*k*n/N): Re = sum x*cos, Im = -sum x*sin.
+        cos_b = np.cos(2 * np.pi * n * k / F) * valid
         new_nodes += [
             const_node(base + "/cos", cos_b),
-            const_node(base + "/sin", sin_b),
-            const_node(base + "/scale", np.array(S)),
             op_node(base + "/re", "BatchMatMulV2", [r.input[0], base + "/cos"], adj_x=False, adj_y=False),
-            op_node(base + "/im", "BatchMatMulV2", [r.input[0], base + "/sin"], adj_x=False, adj_y=False),
-            op_node(base + "/re2", "Square", [base + "/re"]),
-            op_node(base + "/im2", "Square", [base + "/im"]),
-            op_node(base + "/sum", "AddV2", [base + "/re2", base + "/im2"]),
-            op_node(base + "/mag", "Sqrt", [base + "/sum"]),
         ]
+        need_mag = any(c.op == "ComplexAbs" for c in users)
+        if need_mag:
+            # Scale bases by 1/S so squared terms stay inside float16 range; undo after sqrt.
+            S = float(F)
+            new_nodes += [
+                const_node(base + "/cos_s", cos_b / S),
+                const_node(base + "/sin_s", np.sin(2 * np.pi * n * k / F) * valid / S),
+                const_node(base + "/scale", np.array(S)),
+                op_node(base + "/re_s", "BatchMatMulV2", [r.input[0], base + "/cos_s"], adj_x=False, adj_y=False),
+                op_node(base + "/im_s", "BatchMatMulV2", [r.input[0], base + "/sin_s"], adj_x=False, adj_y=False),
+                op_node(base + "/re2", "Square", [base + "/re_s"]),
+                op_node(base + "/im2", "Square", [base + "/im_s"]),
+                op_node(base + "/sum", "AddV2", [base + "/re2", base + "/im2"]),
+                op_node(base + "/mag", "Sqrt", [base + "/sum"]),
+            ]
         remove.add(r.name)
-        for a in abs_nodes:
-            remove.add(a.name)
-            # Keep the ComplexAbs node's name so downstream consumers are untouched.
-            new_nodes.append(op_node(a.name, "Mul", [base + "/mag", base + "/scale"]))
+        for c in users:
+            remove.add(c.name)
+            # Keep each consumer's name so downstream nodes are untouched.
+            if c.op == "ComplexAbs":
+                new_nodes.append(op_node(c.name, "Mul", [base + "/mag", base + "/scale"]))
+            else:  # Cast(complex->float) and Real both yield the real part
+                new_nodes.append(op_node(c.name, "Identity", [base + "/re"]))
 
     out = graph_pb2.GraphDef()
     out.versions.CopyFrom(gd.versions)
