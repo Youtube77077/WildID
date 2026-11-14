@@ -30,7 +30,7 @@ struct RootView: View {
                     .tag(AppTab.explore)
             }
 
-            if let event = toasts.current {
+            if let event = toasts.current, !router.showSoundID, !router.showPhotoID, !router.showGuidedID {
                 NewAnimalToast(event: event, onTap: {
                     router.presentedSpecies = event.species
                     toasts.dismissCurrent()

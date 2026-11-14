@@ -213,6 +213,7 @@ struct PhotoIDView: View {
     @State private var confirmSpecies: SpeciesRef?
     @State private var analyzed = false
 
+    @State private var toastSpecies: SpeciesRef?
     private let api = INaturalistAPI()
 
     var body: some View {
@@ -256,6 +257,10 @@ struct PhotoIDView: View {
                 }
             }
             .wildDestinations()
+        }
+        .newAnimalToasts { species in toastSpecies = species }
+        .sheet(item: $toastSpecies) { s in
+            NavigationStack { SpeciesProfileView(species: s).wildDestinations() }
         }
     }
 

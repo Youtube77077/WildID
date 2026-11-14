@@ -21,6 +21,8 @@ struct SoundIDView: View {
             }
             .wildDestinations()
         }
+        // Small, non-blocking pop-up above the record controls; recording continues.
+        .newAnimalToasts(bottomPadding: 118) { species in path.append(species) }
         .task {
             if sound.state == .idle { await sound.start() }
         }

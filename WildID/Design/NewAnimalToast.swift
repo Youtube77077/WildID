@@ -81,3 +81,31 @@ struct NewAnimalToast: View {
         .accessibilityAddTraits(.isButton)
     }
 }
+
+/// Shows "New Animal" toasts inside any presentation (full-screen covers and sheets sit above
+/// the root view, so each needs its own overlay).
+struct NewAnimalToastOverlay: ViewModifier {
+    @Environment(ToastCenter.self) private var toasts
+    var bottomPadding: CGFloat
+    var onOpen: (SpeciesRef) -> Void
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) {
+            if let event = toasts.current {
+                NewAnimalToast(event: event, onTap: {
+                    onOpen(event.species)
+                    toasts.dismissCurrent()
+                }, onDismiss: { toasts.dismissCurrent() })
+                .padding(.bottom, bottomPadding)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: toasts.current?.id)
+    }
+}
+
+extension View {
+    func newAnimalToasts(bottomPadding: CGFloat = 24, onOpen: @escaping (SpeciesRef) -> Void) -> some View {
+        modifier(NewAnimalToastOverlay(bottomPadding: bottomPadding, onOpen: onOpen))
+    }
+}

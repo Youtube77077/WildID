@@ -169,6 +169,7 @@ struct GuidedIDView: View {
     @State private var confirm: SpeciesRef?
     @State private var pickingPlace = false
 
+    @State private var toastSpecies: SpeciesRef?
     private let api = INaturalistAPI()
 
     var body: some View {
@@ -219,6 +220,10 @@ struct GuidedIDView: View {
             .sheet(isPresented: $pickingPlace) { LocationPickerView(initial: place) { place = $0; Task { await loadResults() } } }
             .onAppear { if place == nil { place = location.activePlace } }
             .wildDestinations()
+        }
+        .newAnimalToasts { species in toastSpecies = species }
+        .sheet(item: $toastSpecies) { s in
+            NavigationStack { SpeciesProfileView(species: s).wildDestinations() }
         }
     }
 
