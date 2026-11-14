@@ -46,6 +46,6 @@ jobs:
           printf "Built from %s (%s)\nUnsigned: sign with Sideloadly/AltStore using your Apple ID.\n" "${GITHUB_SHA::7}" "$(date -u +%Y-%m-%d)" > dist/BUILD_INFO.txt
           git config user.name "wildid-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist
+          git add -f dist
           git commit -q -m "Update dist/WildID.ipa [automated]" || exit 0
           for i in 1 2 3 4; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}" && break; sleep $((i*10)); done
