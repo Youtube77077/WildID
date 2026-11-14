@@ -92,6 +92,14 @@ jobs:
           WAIT=8 shot 24-sign-in $D -wildid-auth signin
           WAIT=8 shot 25-create-account $D -wildid-auth signup
           WAIT=26 shot 26-map-tap-group $D -wildid-tab map -wildid-map-mode mine -wildid-map-cluster
+          WAIT=22 shot 27-search-all-animals $D -wildid-tab index -wildid-search otter
+          WAIT=30 shot 28-range-circles $D -wildid-species "Vulpes vulpes" -wildid-range
+          WAIT=24 shot 29-games-picker $D -wildid-pet "Vulpes vulpes" -wildid-games
+          WAIT=30 shot 30-game-run $D -wildid-pet "Vulpes vulpes" -wildid-game run
+          WAIT=30 shot 31-game-fishing $D -wildid-pet "Vulpes vulpes" -wildid-game fishing
+          WAIT=30 shot 32-game-dash $D -wildid-pet "Vulpes vulpes" -wildid-game dash
+          WAIT=30 shot 33-game-pop $D -wildid-pet "Vulpes vulpes" -wildid-game pop
+          WAIT=30 shot 34-game-maze $D -wildid-pet "Vulpes vulpes" -wildid-game maze
           # Short video of the new-animal animation (pop-up + confetti), ~6 s.
           xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
           xcrun simctl launch "$UDID" "$BUNDLE" -wildid-skip-onboarding $D -wildid-demo-toast new

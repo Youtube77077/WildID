@@ -203,6 +203,12 @@ final class WildIndexEntry {
     /// Wildlings: optional nickname and experience points.
     var nickname: String? = nil
     var xp: Int = 0
+    /// Mini-games: food earned (fed to this Wildling), and the daily play/feeding record.
+    var food: Int = 0
+    var lastPlayedAt: Date? = nil
+    var lastGameRaw: String? = nil
+    var lastGameWon: Bool = false
+    var lastFedAt: Date? = nil
 
     @Relationship(deleteRule: .cascade, inverse: \Catch.entry)
     var catches: [Catch] = []
@@ -233,6 +239,9 @@ final class WildIndexEntry {
     }
     var level: Int { XPRules.level(forXP: xp) }
     var displayName: String { (nickname?.isEmpty == false) ? nickname! : commonName }
+    var canPlayToday: Bool { PlayRules.canPlay(lastPlayedAt: lastPlayedAt) }
+    /// Fed in the last 24 hours.
+    var isHappy: Bool { lastFedAt.map { Date().timeIntervalSince($0) < 86_400 && Date() >= $0 } ?? false }
     var methods: Set<CatchMethod> { Set(catches.map(\.method)) }
     var sortedCatches: [Catch] { catches.sorted { $0.date > $1.date } }
     var latestCatch: Catch? { catches.max { $0.date < $1.date } }

@@ -15,7 +15,11 @@ struct WildIndexView: View {
 
     @State private var filter: AnimalGroup? = nil
     @State private var sort: SortOrder = .newest
-    @State private var search = ""
+    /// CI screenshots can prefill the search with `-wildid-search <text>`.
+    @State private var search: String = {
+        let a = ProcessInfo.processInfo.arguments
+        return a.firstIndex(of: "-wildid-search").flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } ?? ""
+    }()
     @Environment(Router.self) private var router
     /// Search results across every animal (not just your catches).
     @State private var allResults: [INatTaxon] = []

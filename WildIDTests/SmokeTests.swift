@@ -488,3 +488,62 @@ final class RangeHotspotTests: XCTestCase {
         XCTAssertGreaterThan(cells[0].coordinate.latitude, 0)     // top half
     }
 }
+
+@MainActor
+final class MiniGameTests: XCTestCase {
+    func testDailyPlayLock() {
+        let cal = Calendar(identifier: .gregorian)
+        let morning = cal.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 9))!
+        XCTAssertTrue(PlayRules.canPlay(lastPlayedAt: nil, now: morning, calendar: cal))
+        XCTAssertFalse(PlayRules.canPlay(lastPlayedAt: morning, now: morning.addingTimeInterval(3600 * 5), calendar: cal))   // same day
+        XCTAssertTrue(PlayRules.canPlay(lastPlayedAt: morning, now: morning.addingTimeInterval(3600 * 16), calendar: cal))   // next day
+        XCTAssertFalse(PlayRules.canPlay(lastPlayedAt: morning, now: morning.addingTimeInterval(-86_400 * 2), calendar: cal)) // clock set back
+    }
+
+    func testFoodRewards() {
+        XCTAssertEqual(PlayRules.food(for: .run, score: 399), 0)
+        XCTAssertEqual(PlayRules.food(for: .run, score: 400), 1)
+        XCTAssertEqual(PlayRules.food(for: .run, score: 800), 2)
+        XCTAssertEqual(PlayRules.food(for: .maze, score: 0), 0)      // timed out
+        XCTAssertEqual(PlayRules.food(for: .maze, score: 45), 1)
+        XCTAssertEqual(PlayRules.food(for: .maze, score: 25), 2)
+        XCTAssertEqual(PlayRules.food(for: .maze, score: 61), 0)
+    }
+
+    /// Every generated maze has a path from the start to the exit.
+    func testMazesAreSolvable() {
+        for seed in 1...20 {
+            let m = Maze(cols: 9, rows: 13, seed: UInt64(seed))
+            XCTAssertNotNil(m.pathLength(from: 0, to: m.cols * m.rows - 1), "seed \(seed)")
+        }
+    }
+
+    func testBubblesPopAndDrop() {
+        var b = PopBoard(cols: 4, rows: 0, colors: 1, seed: 1)
+        b.cells = [[0, 0, 1, 1], [2, 2, 2]]
+        // Placing a 0 next to two 0s pops three; the 2s below then hang only from the popped cells.
+        let removed = b.place(color: 0, row: 1, col: 0)
+        XCTAssertGreaterThanOrEqual(removed, 3)
+        XCTAssertEqual(b.cells[0][0], nil)
+    }
+
+    /// One game per day per Wildling, food for a win, feeding turns food into XP.
+    func testGameAndFeedingFlow() throws {
+        let schema = Schema([WildIndexEntry.self, Catch.self, SavedRecording.self, RecordingDetection.self])
+        let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let m = CollectionManager(context: container.mainContext, toasts: ToastCenter(), settings: AppSettings())
+        m.addCatch(SpeciesRef(scientificName: "Meles meles", commonName: "Badger", group: .mammals), method: .photo,
+                   confidence: nil, place: nil, coordinate: nil, announce: false)
+        let e = try XCTUnwrap(m.entry(for: "Meles meles"))
+        XCTAssertTrue(m.startGame(e, game: .dash))
+        XCTAssertFalse(m.startGame(e, game: .run))                 // already played today
+        XCTAssertEqual(m.finishGame(e, game: .dash, score: 30), 1)
+        XCTAssertEqual(m.finishGame(e, game: .dash, score: 60), 0)  // can't claim twice
+        let xp = e.xp
+        XCTAssertTrue(m.feed(e))
+        XCTAssertEqual(e.xp, xp + PlayRules.feedXP)
+        XCTAssertEqual(e.food, 0)
+        XCTAssertFalse(m.feed(e))
+        withExtendedLifetime(container) {}
+    }
+}

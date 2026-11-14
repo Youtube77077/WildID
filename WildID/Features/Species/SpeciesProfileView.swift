@@ -90,6 +90,13 @@ struct SpeciesProfileView: View {
         .sheet(isPresented: $showSighting) {
             AddSightingSheet(species: resolvedRef)
         }
+        .task {
+            // CI screenshots: `-wildid-range` opens the "Nearby places & range" map.
+            if ProcessInfo.processInfo.arguments.contains("-wildid-range") {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                showMap = true
+            }
+        }
         .sheet(isPresented: $showMap) {
             if let taxon = model.taxon { SpeciesMapSheet(taxon: taxon) }
         }

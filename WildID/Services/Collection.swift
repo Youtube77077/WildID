@@ -262,6 +262,57 @@ final class CollectionManager {
         ((try? context.fetch(FetchDescriptor<WildIndexEntry>())) ?? []).reduce(0) { $0 + $1.xp }
     }
 
+    // MARK: Mini-games and feeding
+
+    /// Starts today's game for a Wildling. The day's play is used up as soon as the game starts,
+    /// so quitting a losing game doesn't give another try. Returns false if already played today.
+    @discardableResult
+    func startGame(_ entry: WildIndexEntry, game: WildGame, now: Date = Date()) -> Bool {
+        guard PlayRules.canPlay(lastPlayedAt: entry.lastPlayedAt, now: now) else { return false }
+        entry.lastPlayedAt = now
+        entry.lastGameRaw = game.rawValue
+        entry.lastGameWon = false
+        try? context.save()
+        revision += 1
+        BackupStore.shared.scheduleBackup(context: context)
+        return true
+    }
+
+    /// Records the result of today's game and hands out food. Returns the food earned.
+    @discardableResult
+    func finishGame(_ entry: WildIndexEntry, game: WildGame, score: Int) -> Int {
+        guard entry.lastGameRaw == game.rawValue, !entry.lastGameWon,
+              let started = entry.lastPlayedAt, Calendar.current.isDate(started, inSameDayAs: Date()) else { return 0 }
+        let food = PlayRules.food(for: game, score: score)
+        entry.lastGameWon = food > 0
+        entry.food += food
+        try? context.save()
+        revision += 1
+        BackupStore.shared.scheduleBackup(context: context)
+        return food
+    }
+
+    /// Feeds one portion of food to a Wildling: +XP (with the usual level-up pop-up).
+    @discardableResult
+    func feed(_ entry: WildIndexEntry, now: Date = Date()) -> Bool {
+        guard entry.food > 0 else { return false }
+        let levelBefore = entry.level
+        entry.food -= 1
+        entry.xp += PlayRules.feedXP
+        entry.lastFedAt = now
+        try? context.save()
+        revision += 1
+        BackupStore.shared.scheduleBackup(context: context)
+        if entry.level > levelBefore, settings.newAnimalPopups {
+            let ref = SpeciesRef(scientificName: entry.scientificName, commonName: entry.commonName, taxonID: entry.taxonID,
+                                 photoURL: entry.photoURL, group: entry.group)
+            toasts.show(NewAnimalEvent(species: ref, totalSpecies: speciesCount(), kind: .levelUp, xp: PlayRules.feedXP,
+                                       level: entry.level, tier: entry.tier, displayName: entry.displayName))
+        }
+        if settings.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        return true
+    }
+
     func rename(_ entry: WildIndexEntry, to nickname: String?) {
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.nickname = (trimmed?.isEmpty ?? true) ? nil : String(trimmed!.prefix(24))

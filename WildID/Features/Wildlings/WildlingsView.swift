@@ -170,6 +170,8 @@ struct PetDetailView: View {
     @State private var newName = ""
     @State private var facts: SpeciesFacts?
     @State private var appeared = false
+    @State private var playing = false
+    @State private var fedPulse = 0
 
     init(entryKey: String) {
         self.entryKey = entryKey
@@ -267,6 +269,7 @@ struct PetDetailView: View {
                     }
 
                     RarityPanel(entry: e)
+                    playCard(e)
                     CatchSoundButton(entry: e)
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -317,7 +320,13 @@ struct PetDetailView: View {
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) { appeared = true } }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) { appeared = true }
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-wildid-game") || args.contains("-wildid-games") {
+                Task { @MainActor in try? await Task.sleep(nanoseconds: 1_200_000_000); playing = true }
+            }
+        }
         .task { facts = try? await WikidataAPI().facts(scientificName: e.scientificName) }
         .alert("Nickname", isPresented: $renaming) {
             TextField(e.commonName, text: $newName)
@@ -325,6 +334,60 @@ struct PetDetailView: View {
             Button("Reset", role: .destructive) { collection.rename(e, to: nil) }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Give your \(e.commonName) a name. Its real species name stays in the Wild Index.") }
+    }
+
+    /// Today's game and feeding.
+    private func playCard(_ e: WildIndexEntry) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Play & feed", systemImage: "gamecontroller.fill").font(.system(size: 18, weight: .heavy, design: .rounded))
+                Spacer()
+                if e.isHappy { Label("Happy", systemImage: "heart.fill").font(.caption.weight(.bold)).foregroundStyle(.pink) }
+            }
+            HStack(spacing: 10) {
+                Button { playing = true } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: e.canPlayToday ? "play.circle.fill" : "moon.zzz.fill").font(.system(size: 24, weight: .bold))
+                        Text(e.canPlayToday ? "Play today's game" : "Played today").font(.system(size: 13, weight: .bold, design: .rounded))
+                        if !e.canPlayToday, let last = e.lastPlayedAt {
+                            Text("Next \(PlayRules.nextPlay(after: last).formatted(.relative(presentation: .named)))").font(.caption2).foregroundStyle(Theme.secondaryText)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 76)
+                    .foregroundStyle(e.canPlayToday ? .white : .primary)
+                    .background(e.canPlayToday ? AnyShapeStyle(Theme.moss.gradient) : AnyShapeStyle(Theme.softFill), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(PressableStyle())
+                Button {
+                    if collection.feed(e) { fedPulse += 1 }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "takeoutbag.and.cup.and.straw.fill").font(.system(size: 24, weight: .bold))
+                            .symbolEffect(.bounce, value: fedPulse)
+                        Text("Feed (\(e.food))").font(.system(size: 13, weight: .bold, design: .rounded))
+                        Text("+\(PlayRules.feedXP) XP each").font(.caption2).foregroundStyle(Theme.secondaryText)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 76)
+                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.moss.opacity(e.food > 0 ? 0.6 : 0.15), lineWidth: 1.5))
+                }
+                .buttonStyle(PressableStyle())
+                .disabled(e.food == 0)
+                .tint(.primary)
+            }
+            Text("One game a day: reach the goal to win food, then feed it here. Miss it and \(e.displayName) can try again tomorrow.")
+                .font(.caption).foregroundStyle(Theme.secondaryText)
+        }
+        .padding(14)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .sheet(isPresented: $playing) { GameHostView(entry: e, preselected: Self.launchGame) }
+    }
+
+    /// CI screenshots: `-wildid-game run|fishing|dash|pop|maze` jumps straight into a game.
+    static var launchGame: WildGame? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-wildid-game"), i + 1 < args.count else { return nil }
+        return WildGame(rawValue: args[i + 1])
     }
 
     private var weightText: String { facts?.measures.first { $0.label == "Mass" }?.value.components(separatedBy: " – ").last ?? "—" }

@@ -100,7 +100,7 @@ final class InferencePipeline: @unchecked Sendable {
         queue.async { [weak self] in
             let result = (try? window.withUnsafeBufferPointer {
                 try model.classifyWithHuman($0, threshold: minConfidence, useLocationFilter: filter)
-            }) ?? ([], 0)
+            }) ?? (predictions: [], human: 0)
             guard let self else { return }
             self.lock.withLock { self.busy = false }
             self.onResult?(Array(result.predictions.prefix(4)), windowStart, window, result.human)

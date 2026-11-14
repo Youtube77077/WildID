@@ -58,6 +58,12 @@ final class BackupStore {
     }
 
     struct BackupEntry: Codable {
+        // Mini-game state (optional so older backups still decode).
+        var food: Int? = nil
+        var lastPlayedAt: Date? = nil
+        var lastGameRaw: String? = nil
+        var lastGameWon: Bool? = nil
+        var lastFedAt: Date? = nil
         var scientificName: String
         var commonName: String
         var taxonID: Int?
@@ -125,7 +131,7 @@ final class BackupStore {
     static func makeBackup(context: ModelContext) -> Backup {
         let entries = (try? context.fetch(FetchDescriptor<WildIndexEntry>())) ?? []
         return Backup(savedAt: Date(), entries: entries.map { e in
-            BackupEntry(scientificName: e.scientificName, commonName: e.commonName, taxonID: e.taxonID, group: e.groupRaw,
+            var b = BackupEntry(scientificName: e.scientificName, commonName: e.commonName, taxonID: e.taxonID, group: e.groupRaw,
                         photoURL: e.photoURLString, family: e.familyName, order: e.orderName, className: e.className,
                         conservation: e.conservationCode, rarity: e.rarityRaw, localCount: e.localObservationCount,
                         firstCaughtAt: e.firstCaughtAt, lastCaughtAt: e.lastCaughtAt, favorite: e.isFavorite,
@@ -137,6 +143,12 @@ final class BackupStore {
                                         awardedAt: c.awardedAt, tier: c.tierRaw, tierLock: c.tierLockRaw,
                                         verifiedLatitude: c.verifiedLatitude, verifiedLongitude: c.verifiedLongitude)
                         })
+            b.food = e.food
+            b.lastPlayedAt = e.lastPlayedAt
+            b.lastGameRaw = e.lastGameRaw
+            b.lastGameWon = e.lastGameWon
+            b.lastFedAt = e.lastFedAt
+            return b
         })
     }
 
@@ -180,6 +192,11 @@ final class BackupStore {
             e.isFavorite = b.favorite
             e.nickname = b.nickname
             e.xp = b.xp
+            e.food = b.food ?? 0
+            e.lastPlayedAt = b.lastPlayedAt
+            e.lastGameRaw = b.lastGameRaw
+            e.lastGameWon = b.lastGameWon ?? false
+            e.lastFedAt = b.lastFedAt
             context.insert(e)
             for bc in b.catches {
                 let coord = (bc.latitude != nil && bc.longitude != nil) ? CLLocationCoordinate2DMake(bc.latitude!, bc.longitude!) : nil
