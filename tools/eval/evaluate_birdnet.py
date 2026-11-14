@@ -210,10 +210,10 @@ def main():
             })
             keep = (occ >= 0.03) if occ is not None else np.ones_like(probs, dtype=bool)   # location filter
             for cond, w in (("clean", wins), ("faint_wind", noisy_wins)):
-                for t in THRESHOLDS:
-                    acc = app_accepts(w, t) & (keep | (w.max(axis=0) >= 0.9))
-                    results[-1][f"{cond}_added_{t}"] = bool(acc[truth])
-                    results[-1][f"{cond}_other_species_added_{t}"] = int((acc & others).sum())
+                for th in THRESHOLDS:
+                    acc = app_accepts(w, th) & (keep | (w.max(axis=0) >= 0.9))
+                    results[-1][f"{cond}_added_{th}"] = bool(acc[truth])
+                    results[-1][f"{cond}_other_species_added_{th}"] = int((acc & others).sum())
             n += 1
             r = results[-1]
             print(f"{t['name']:<32} rank {r['rank']:>4}  filtered {r['rank_filtered']:>4}  p={r['truth_score']:.2f}  "
