@@ -68,7 +68,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     /// moved), accurate (≤ 1 km) and not
     /// reported by iOS as simulated by software or produced by an external accessory. A place
     /// chosen by hand (`manualPlace`) never counts.
-    var verifiedFix: CLLocation? { current.flatMap(Self.trusted) }
+    var verifiedFix: CLLocation? { current.flatMap { Self.trusted($0) } }
 
     nonisolated static func trusted(_ fix: CLLocation, now: Date = Date()) -> CLLocation? {
         guard now.timeIntervalSince(fix.timestamp) <= 600,
