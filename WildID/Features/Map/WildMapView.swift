@@ -34,6 +34,8 @@ struct WildMapView: View {
     @State private var showCommunity = false
     @State private var satellite = false
     @State private var selected: MapPin?
+    /// Pins of a tapped group, rarest first, shown as a list.
+    @State private var clusterPins: [MapPin]?
     @State private var focus: MapFocusRequest?
     @State private var region: MKCoordinateRegion?
     @State private var observations: [INatObservation] = []
@@ -49,7 +51,8 @@ struct WildMapView: View {
         NavigationStack(path: $path) {
             ZStack(alignment: .top) {
                 WildMKMapView(pins: pins, layers: layers, satellite: satellite, focus: focus,
-                              onSelect: { pin in withAnimation(.spring(response: 0.35)) { selected = pin } },
+                              onSelect: { pin in withAnimation(.spring(response: 0.35)) { selected = pin; if pin != nil { clusterPins = nil } } },
+                              onSelectCluster: { group in withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { clusterPins = group; selected = nil } },
                               onRegionChange: { r in region = r; Task { await loadObservations() } })
                     .ignoresSafeArea(edges: .top)
 
@@ -92,6 +95,7 @@ struct WildMapView: View {
                 }
             }
             .task(id: searchText) { await search() }
+            .onAppear { openDemoClusterIfRequested() }
         }
     }
 
@@ -297,7 +301,9 @@ struct WildMapView: View {
 
     @ViewBuilder
     private var bottomCard: some View {
-        if let pin = selected {
+        if let group = clusterPins {
+            clusterList(group)
+        } else if let pin = selected {
             HStack(spacing: 12) {
                 SpeciesThumb(url: pin.imageURL, group: pin.group, size: 64, corner: 10)
                 VStack(alignment: .leading, spacing: 3) {
@@ -332,6 +338,78 @@ struct WildMapView: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .background(.regularMaterial, in: Capsule())
+        }
+    }
+
+    /// Everything in a tapped group: rarest first, each opens its Wild Index entry or species page.
+    private func clusterList(_ group: [MapPin]) -> some View {
+        let mine = group.filter { $0.kind == .myCatch }.count
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(group.count) here").font(.system(size: 20, weight: .heavy, design: .rounded))
+                    Text(mine == group.count ? "Your catches · rarest first" : mine == 0 ? "Community sightings · rarest first" : "\(mine) yours · \(group.count - mine) community · rarest first")
+                        .font(.caption).foregroundStyle(Theme.secondaryText)
+                }
+                Spacer()
+                Button { withAnimation(.spring(response: 0.35)) { clusterPins = nil } } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(Theme.tertiaryText)
+                }
+                .accessibilityLabel("Close list")
+            }
+            .padding(.bottom, 8)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(group.enumerated()), id: \.element.id) { index, pin in
+                        clusterRow(pin)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        if index < group.count - 1 { Divider().padding(.leading, 58) }
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    @ViewBuilder
+    private func clusterRow(_ pin: MapPin) -> some View {
+        let tier = Rarity.allCases[min(Rarity.allCases.count - 1, max(0, pin.tierRank))]
+        let row = HStack(spacing: 12) {
+            SpeciesThumb(url: pin.iconURL ?? pin.imageURL, group: pin.group, size: 46, corner: 23)
+                .overlay(Circle().strokeBorder(pin.kind == .myCatch ? tier.color : .orange, lineWidth: 2))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pin.title).font(.system(size: 16, weight: .bold, design: .rounded)).foregroundStyle(.primary).lineLimit(1)
+                Text(pin.subtitle).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            TierBadge(tier: tier, compact: true)
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.tertiaryText)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        if let species = pin.species {
+            if pin.kind == .myCatch {
+                NavigationLink(value: WildIndexEntryRoute(key: species.id)) { row }.buttonStyle(.plain)
+            } else {
+                NavigationLink(value: species) { row }.buttonStyle(.plain)
+            }
+        } else {
+            row
+        }
+    }
+
+    /// CI screenshots: `-wildid-map-cluster` opens the list for your catches around the map centre.
+    fileprivate func openDemoClusterIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-wildid-map-cluster") else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            let group = pins.filter { $0.kind == .myCatch }
+                .sorted { ($0.tierRank, $0.date ?? .distantPast) > ($1.tierRank, $1.date ?? .distantPast) }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { clusterPins = group }
         }
     }
 }

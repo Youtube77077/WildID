@@ -102,6 +102,15 @@ struct NewAnimalToast: View {
                 )
                 .shadow(color: tier.color.opacity(tier >= .epic ? 0.45 : 0.25), radius: 16, y: 8)
         }
+        // Confetti bursting up from the animal's photo. Drawn above the card but ignores touches,
+        // so it never gets in the way (Sound ID keeps recording underneath).
+        .overlay(alignment: .bottomLeading) {
+            CatchConfetti(tier: tier, seed: event.id.hashValue)
+                .frame(width: 420, height: 560, alignment: .bottomLeading)
+                .offset(x: -16, y: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .padding(.horizontal, 16)
         .offset(y: max(0, drag))
         .gesture(DragGesture().onChanged { drag = $0.translation.height }.onEnded { v in
@@ -132,6 +141,77 @@ struct NewAnimalToast: View {
             }
         }
     }
+}
+
+/// A one-shot confetti burst (about 2 seconds): pieces fly up and out from the photo, spin,
+/// fall back under gravity and fade. Rarer animals get more pieces in their tier colours.
+struct CatchConfetti: View {
+    let tier: Rarity
+    let seed: Int
+    @State private var start = Date()
+
+    private struct Piece {
+        var vx, vy, spin, size: Double
+        var color: Color
+        var star: Bool
+    }
+
+    private var pieces: [Piece] {
+        var rng = SplitMix(seed: UInt64(bitPattern: Int64(seed)))
+        let count = [36, 46, 60, 78, 100][tier.rank]
+        let palette: [Color] = [tier.color, tier.color.opacity(0.75), Theme.sunlight, .white, Theme.moss]
+        return (0..<count).map { _ in
+            let angle = Double.pi * (0.18 + 0.64 * rng.unit())          // mostly up, fanning right and left
+            let speed = 260 + 380 * rng.unit()
+            return Piece(vx: cos(angle) * speed * (rng.unit() < 0.5 ? 1 : 0.55), vy: -sin(angle) * speed,
+                         spin: (rng.unit() - 0.5) * 14, size: 5 + 6 * rng.unit(),
+                         color: palette[Int(rng.unit() * Double(palette.count)) % palette.count],
+                         star: rng.unit() < 0.22)
+        }
+    }
+
+    var body: some View {
+        let pieces = self.pieces
+        TimelineView(.animation) { context in
+            let t = context.date.timeIntervalSince(start)
+            Canvas { ctx, size in
+                guard t < 2.2 else { return }
+                let origin = CGPoint(x: 56, y: size.height - 38)
+                for p in pieces {
+                    let x = origin.x + p.vx * t
+                    let y = origin.y + p.vy * t + 0.5 * 900 * t * t       // gravity
+                    let alpha = max(0, 1 - t / 2.2)
+                    var piece = ctx
+                    piece.opacity = alpha
+                    piece.translateBy(x: x, y: y)
+                    piece.rotate(by: .radians(p.spin * t))
+                    if p.star {
+                        var star = piece.resolve(Image(systemName: "star.fill"))
+                        star.shading = .color(p.color)
+                        piece.draw(star, in: CGRect(x: -p.size, y: -p.size, width: p.size * 2, height: p.size * 2))
+                    } else {
+                        piece.fill(Path(roundedRect: CGRect(x: -p.size / 2, y: -p.size / 4, width: p.size, height: p.size / 2), cornerRadius: 1.5),
+                                   with: .color(p.color))
+                    }
+                }
+            }
+        }
+        .onAppear { start = Date() }
+    }
+}
+
+/// Small deterministic random generator (same confetti for the same pop-up).
+struct SplitMix {
+    var state: UInt64
+    init(seed: UInt64) { state = seed &+ 0x9E37_79B9_7F4A_7C15 }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
+    }
+    mutating func unit() -> Double { Double(next() >> 11) / Double(1 << 53) }
 }
 
 /// Shows "New Animal" toasts inside any presentation (full-screen covers and sheets sit above

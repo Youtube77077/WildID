@@ -44,6 +44,8 @@ struct WildMKMapView: UIViewRepresentable {
     var focus: MapFocusRequest? = nil
     var interactive = true
     var onSelect: ((MapPin?) -> Void)? = nil
+    /// A group of pins was tapped: the map zooms in on them and passes them on (rarest first).
+    var onSelectCluster: (([MapPin]) -> Void)? = nil
     var onRegionChange: ((MKCoordinateRegion) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -165,8 +167,22 @@ struct WildMKMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
             if let cluster = annotation as? MKClusterAnnotation {
-                mapView.showAnnotations(cluster.memberAnnotations, animated: true)
                 mapView.deselectAnnotation(cluster, animated: false)
+                // Zoom in on the group, leaving room for the list at the bottom.
+                var rect = MKMapRect.null
+                for m in cluster.memberAnnotations {
+                    let p = MKMapPoint(m.coordinate)
+                    rect = rect.union(MKMapRect(x: p.x, y: p.y, width: 0, height: 0))
+                }
+                let minSide = MKMapPointsPerMeterAtLatitude(cluster.coordinate.latitude) * 600
+                if rect.size.width < minSide || rect.size.height < minSide {
+                    let c = MKMapPoint(cluster.coordinate)
+                    rect = MKMapRect(x: c.x - minSide / 2, y: c.y - minSide / 2, width: minSide, height: minSide)
+                }
+                mapView.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 190, left: 60, bottom: 380, right: 60), animated: true)
+                let pins = cluster.memberAnnotations.compactMap { ($0 as? PinAnnotation)?.pin }
+                    .sorted { ($0.tierRank, $0.date ?? .distantPast) > ($1.tierRank, $1.date ?? .distantPast) }
+                parent.onSelectCluster?(pins)
                 return
             }
             if let a = annotation as? PinAnnotation { parent.onSelect?(a.pin) }

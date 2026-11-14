@@ -64,7 +64,7 @@ jobs:
             sleep ${WAIT:-14}
             xcrun simctl io "$UDID" screenshot "docs/screenshots/$name.png"
           }
-          rm -f docs/screenshots/*.png
+          rm -f docs/screenshots/*.png docs/screenshots/*.mp4
           D=-wildid-demo-data
           WAIT=24 shot 01-home $D
           WAIT=12 shot 02-identify $D -wildid-open identify
@@ -91,6 +91,17 @@ jobs:
           WAIT=24 shot 23-profile $D -wildid-open profile
           WAIT=8 shot 24-sign-in $D -wildid-auth signin
           WAIT=8 shot 25-create-account $D -wildid-auth signup
+          WAIT=26 shot 26-map-tap-group $D -wildid-tab map -wildid-map-mode mine -wildid-map-cluster
+          # Short video of the new-animal animation (pop-up + confetti), ~6 s.
+          xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+          xcrun simctl launch "$UDID" "$BUNDLE" -wildid-skip-onboarding $D -wildid-demo-toast new
+          sleep 8.5
+          xcrun simctl io "$UDID" recordVideo --codec=h264 --force docs/screenshots/catch-animation.mp4 &
+          REC=$!
+          sleep 6
+          kill -INT $REC || true
+          wait $REC || true
+          ls -la docs/screenshots/catch-animation.mp4 || true
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
         run: |
