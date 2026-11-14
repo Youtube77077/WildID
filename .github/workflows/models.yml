@@ -2,7 +2,7 @@ name: Convert models (BirdNET -> Core ML)
 on:
   push:
     branches: ['**']
-    paths: ['tools/models/**', '.github/workflows/models.yml']
+    paths: ['tools/models/convert_birdnet.py', 'tools/models/fetch_test_audio.py']
   workflow_dispatch:
 
 permissions:
