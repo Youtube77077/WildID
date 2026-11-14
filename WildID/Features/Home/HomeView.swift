@@ -229,7 +229,16 @@ struct HomeView: View {
                           subtitle: location.activePlace.map { "Recently recorded near \($0.name)" },
                           actionTitle: "See all") { router.tab = .explore }
                 .padding(.horizontal, Theme.gutter)
-            if nearby.isLoading && nearby.species.isEmpty {
+            if location.activePlace == nil && nearby.species.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Turn on location — or pick a place — to see the animals recorded around it.")
+                        .font(.subheadline).foregroundStyle(Theme.secondaryText)
+                    Button("Choose a place") { router.showSettings = true }
+                        .buttonStyle(.borderedProminent)
+                }
+                .wildCard()
+                .padding(.horizontal, Theme.gutter)
+            } else if nearby.isLoading && nearby.species.isEmpty {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 160)
             } else if let error = nearby.error, nearby.species.isEmpty {
                 ErrorRetryView(message: error) { Task { await nearby.load(for: location.activePlace, force: true) } }
