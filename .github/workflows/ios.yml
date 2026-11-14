@@ -39,7 +39,7 @@ jobs:
         timeout-minutes: 25
         run: |
           set -o pipefail
-          xcodebuild -project WildID.xcodeproj -scheme WildID \
+          perl -e 'alarm shift; exec @ARGV' 1200 xcodebuild -project WildID.xcodeproj -scheme WildID \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' -derivedDataPath build/sim \
             -test-timeouts-enabled YES -maximum-test-execution-time-allowance 240 -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee test.log | grep -E --line-buffered "error:|Test Case|Executed|TEST (SUCCEEDED|FAILED)|Testing started|Restarting" || true
