@@ -86,8 +86,8 @@ struct HomeView: View {
                     Image("WildMark").resizable().renderingMode(.template).foregroundStyle(Theme.moss).frame(width: 22, height: 22)
                     Text("WildID").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(Theme.moss)
                 }
-                Text(accounts.current.map { "\(greeting), \($0.greetingName)" } ?? greeting).font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .lineLimit(1).minimumScaleFactor(0.6)
+                Text(accounts.current.map { "\(greeting),\n\($0.greetingName)" } ?? greeting).font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .lineLimit(2).minimumScaleFactor(0.6)
             }
             .layoutPriority(1)
             Spacer(minLength: 4)
