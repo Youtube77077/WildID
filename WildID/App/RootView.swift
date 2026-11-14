@@ -71,6 +71,7 @@ struct RootView: View {
             SoundIDView()
         }
         .sheet(isPresented: $router.showIdentify) { IdentifyView() }
+        .sheet(isPresented: $router.showProfile) { ProfileView() }
         .sheet(isPresented: $router.showPhotoID) { PhotoIDView() }
         .sheet(isPresented: $router.showGuidedID) { GuidedIDView() }
         .sheet(isPresented: $router.showSettings) { SettingsView() }
@@ -148,6 +149,7 @@ struct RootView: View {
         case "guided": router.showGuidedID = true
         case "settings": router.showSettings = true
         case "identify": router.showIdentify = true
+        case "profile": router.showProfile = true
         case "recordings": router.showRecordings = true
         case "wildlings-guide": router.tab = .wildlings; router.showWildlingsGuide = true
         case "achievements": router.tab = .wildIndex; router.showAchievements = true

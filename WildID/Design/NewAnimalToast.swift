@@ -19,7 +19,7 @@ struct NewAnimalToast: View {
     @State private var drag: CGFloat = 0
 
     private var tier: Rarity { event.tier }
-    private var accent: Color { tier >= .rare ? tier.color : Theme.sunlight }
+    private var accent: Color { tier.color }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -40,7 +40,7 @@ struct NewAnimalToast: View {
                             Capsule().frame(width: 3, height: 9)
                         }
                     }
-                    .foregroundStyle(i.isMultiple(of: 2) ? accent : Theme.sunlight)
+                    .foregroundStyle(i.isMultiple(of: 2) ? accent : accent.opacity(0.55))
                     .offset(y: burst ? -42 : -20)
                     .rotationEffect(.degrees(Double(i) * 30 + (burst ? 12 : 0)))
                     .opacity(burst ? 0 : 1)
@@ -57,7 +57,7 @@ struct NewAnimalToast: View {
                     Text(event.kind == .levelUp ? "LEVEL UP!" : "NEW ANIMAL")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .tracking(1.2)
-                        .foregroundStyle(Theme.mossDeep)
+                        .foregroundStyle(tier.color)
                     TierBadge(tier: tier, compact: true)
                 }
                 Text(event.kind == .levelUp ? "\(event.displayName ?? event.species.commonName) reached Lv \(event.level)" : event.species.commonName)
@@ -73,34 +73,34 @@ struct NewAnimalToast: View {
             VStack(spacing: 2) {
                 Image(systemName: event.kind == .levelUp ? "arrow.up.circle.fill" : "sparkles")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.mossDeep)
+                    .foregroundStyle(tier.color)
                     .symbolEffect(.bounce, value: shimmer)
                 if event.xp > 0 {
                     Text("+\(shownXP) XP")
                         .font(.system(size: 12, weight: .heavy, design: .rounded).monospacedDigit())
-                        .foregroundStyle(Theme.mossDeep)
+                        .foregroundStyle(.black.opacity(0.8))
                         .contentTransition(.numericText(value: Double(shownXP)))
                 }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        // White card; the outline (and the sweep of light) takes the colour of the rarity tier.
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(LinearGradient(colors: [Theme.sunlightSoft, Theme.sunlight], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.6), .white.opacity(0)],
+                        .fill(LinearGradient(colors: [tier.color.opacity(0), tier.color.opacity(0.18), tier.color.opacity(0)],
                                              startPoint: .leading, endPoint: .trailing))
                         .offset(x: shimmer ? 280 : -280)
                         .mask(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(tier >= .rare ? AnyShapeStyle(tier.gradient) : AnyShapeStyle(Color.white.opacity(0.5)),
-                                      lineWidth: tier >= .rare ? 2.5 : 1)
+                        .strokeBorder(tier.gradient, lineWidth: 3)
                 )
-                .shadow(color: (tier >= .epic ? tier.color : .black).opacity(tier >= .epic ? 0.45 : 0.18), radius: 16, y: 8)
+                .shadow(color: tier.color.opacity(tier >= .epic ? 0.45 : 0.25), radius: 16, y: 8)
         }
         .padding(.horizontal, 16)
         .offset(y: max(0, drag))

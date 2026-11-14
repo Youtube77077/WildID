@@ -18,6 +18,7 @@ final class Router {
     var showIdentify = false
     var showWildlingsGuide = false
     var showAchievements = false
+    var showProfile = false
     var showSoundID = false
     var showPhotoID = false
     var showGuidedID = false

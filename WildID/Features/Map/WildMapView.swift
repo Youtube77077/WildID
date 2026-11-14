@@ -7,6 +7,7 @@ struct WildMapView: View {
     @Environment(LocationService.self) private var location
     @Environment(Router.self) private var router
     @Environment(Connectivity.self) private var connectivity
+    @Environment(NearbyStore.self) private var nearby
     @Query(sort: \Catch.date, order: .reverse) private var catches: [Catch]
 
     enum TimeFilter: String, CaseIterable, Identifiable {
@@ -117,17 +118,22 @@ struct WildMapView: View {
             result += filteredCatches.compactMap { c in
                 guard let coord = c.coordinate, let e = c.entry else { return nil }
                 return MapPin(id: "c-\(c.id.uuidString)", coordinate: coord, title: e.commonName,
-                              subtitle: "\(c.date.wildDay) · \(c.method.title)", imageURL: e.photoURL, kind: .myCatch, group: e.group,
+                              subtitle: "\(c.date.wildDay) · \(c.method.title)", imageURL: e.photoURL,
+                              tierRank: (c.lockedTier ?? e.tier).rank, kind: .myCatch, group: e.group,
                               species: SpeciesRef(scientificName: e.scientificName, commonName: e.commonName, taxonID: e.taxonID, photoURL: e.photoURL, group: e.group),
                               date: c.date, source: "Your catch")
             }
         }
         if showRecent {
+            // Community sightings: rarity from how often the species is recorded around here
+            // this season (species missing from the local list count as Rare).
+            let seasonal = Dictionary(nearby.species.map { ($0.taxon.id, $0.count) }, uniquingKeysWith: max)
             result += observations.compactMap { o in
                 guard let coord = o.coordinate, let t = o.taxon else { return nil }
                 return MapPin(id: "o-\(o.id)", coordinate: coord, title: t.commonName,
                               subtitle: [o.observedDate?.wildDay, o.place_guess].compactMap { $0 }.joined(separator: " · "),
-                              imageURL: o.photos?.first?.sized("small"), iconURL: t.thumbURL, kind: .observation, group: t.group,
+                              imageURL: o.photos?.first?.sized("small"), iconURL: t.thumbURL,
+                              tierRank: (seasonal[t.id].map(Rarity.fromSeasonalCount) ?? .rare).rank, kind: .observation, group: t.group,
                               species: SpeciesRef(taxon: t), date: o.observedDate,
                               source: "iNaturalist · \(o.user?.name ?? o.user?.login ?? "observer")")
             }

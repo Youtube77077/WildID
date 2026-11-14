@@ -11,6 +11,8 @@ struct MapPin: Identifiable, Equatable {
     let imageURL: URL?
     /// Species picture used for the round map icon (falls back to `imageURL`).
     var iconURL: URL? = nil
+    /// Rarity rank (0 = Common … 4 = Legendary): rarer animals are drawn on top and lead clusters.
+    var tierRank: Int = 0
     let kind: Kind
     let group: AnimalGroup
     let species: SpeciesRef?
@@ -249,8 +251,11 @@ final class PhotoPinView: MKAnnotationView {
         let mine = pin.kind == .myCatch
         layout(size: mine ? 46 : 36, ringWidth: mine ? 3 : 2.5)
         clusteringIdentifier = mine ? "catch" : "obs"
-        displayPriority = mine ? .required : .defaultLow
-        ring.backgroundColor = mine ? UIColor(pin.group.tint) : Self.communityColor
+        // Rarer animals win when pins collide, and sit above common ones.
+        displayPriority = MKFeatureDisplayPriority(rawValue: (mine ? 900 : 300) + Float(pin.tierRank) * 20)
+        zPriority = MKAnnotationViewZPriority(rawValue: Float(pin.tierRank) * 100 + (mine ? 50 : 0))
+        let tier = Rarity.allCases[min(Rarity.allCases.count - 1, max(0, pin.tierRank))]
+        ring.backgroundColor = mine ? UIColor(tier.color) : Self.communityColor
         ring.layer.borderColor = mine ? UIColor.white.cgColor : Self.communityColor.cgColor
         imageView.image = UIImage(systemName: pin.group.symbol)
         imageView.contentMode = .center
@@ -275,28 +280,31 @@ final class PhotoPinView: MKAnnotationView {
     }
 }
 
-/// A group of nearby pins: the photo of one of the animals in it, with a count badge.
+/// A group of nearby pins: the photo of the rarest animal in it, ringed in its rarity colour, with
+/// the count in a small pill *below* the photo (never covering it). The circle grows a little with
+/// the number of animals (≈ +4 pt per doubling, at most +14 pt).
 final class ClusterPinView: MKAnnotationView {
     private let imageView = UIImageView()
+    private let ring = UIView()
     private let badge = UILabel()
     private var loadTask: Task<Void, Never>?
+    private static let badgeHeight: CGFloat = 18
+    private static let gap: CGFloat = 3
 
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        layer.borderColor = UIColor.white.cgColor
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.3
-        layer.shadowRadius = 4
-        layer.shadowOffset = CGSize(width: 0, height: 2)
+        ring.layer.shadowColor = UIColor.black.cgColor
+        ring.layer.shadowOpacity = 0.3
+        ring.layer.shadowRadius = 4
+        ring.layer.shadowOffset = CGSize(width: 0, height: 2)
+        addSubview(ring)
         imageView.clipsToBounds = true
         imageView.contentMode = .scaleAspectFill
         imageView.tintColor = .white
         addSubview(imageView)
         badge.textAlignment = .center
-        badge.font = .systemFont(ofSize: 12, weight: .heavy)
+        badge.font = .systemFont(ofSize: 11, weight: .heavy)
         badge.textColor = .white
-        badge.layer.borderColor = UIColor.white.cgColor
-        badge.layer.borderWidth = 1.5
         badge.clipsToBounds = true
         addSubview(badge)
         collisionMode = .circle
@@ -304,35 +312,48 @@ final class ClusterPinView: MKAnnotationView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Diameter for a cluster of `n` pins: base size plus a little per doubling, capped.
+    static func diameter(base: CGFloat, count n: Int) -> CGFloat {
+        base + min(14, 4 * log2(CGFloat(max(n, 2))))
+    }
+
     override var annotation: MKAnnotation? {
         didSet {
             guard let cluster = annotation as? MKClusterAnnotation else { return }
             let pins = cluster.memberAnnotations.compactMap { ($0 as? PinAnnotation)?.pin }
             let isCatch = pins.first?.kind == .myCatch
-            let color = isCatch ? UIColor(red: 0.20, green: 0.49, blue: 0.31, alpha: 1) : PhotoPinView.communityColor
-            let size: CGFloat = isCatch ? 52 : 42
-            frame = CGRect(x: 0, y: 0, width: size, height: size)
-            layer.cornerRadius = size / 2
-            layer.borderWidth = 3
-            layer.borderColor = (isCatch ? UIColor.white : color).cgColor
-            backgroundColor = color
-            imageView.frame = bounds.insetBy(dx: 3, dy: 3)
-            imageView.layer.cornerRadius = (size - 6) / 2
             let n = cluster.memberAnnotations.count
+            // The rarest animal leads (most recent among equals).
+            let lead = pins.max { ($0.tierRank, $0.date ?? .distantPast) < ($1.tierRank, $1.date ?? .distantPast) }
+            let tier = Rarity.allCases[min(Rarity.allCases.count - 1, max(0, lead?.tierRank ?? 0))]
+            let ringColor = isCatch ? UIColor(tier.color) : PhotoPinView.communityColor
+            let size = Self.diameter(base: isCatch ? 46 : 36, count: n)
+
             badge.text = n > 99 ? "99+" : "\(n)"
-            let w = max(20, CGFloat(badge.text!.count) * 8 + 10)
-            badge.frame = CGRect(x: size - w + 6, y: -4, width: w, height: 20)
-            badge.layer.cornerRadius = 10
-            badge.backgroundColor = color
-            // Show the most recent animal in the group.
-            let lead = pins.max { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) } ?? pins.first
-            imageView.backgroundColor = lead.map { UIColor($0.group.tint) } ?? color
+            let badgeWidth = max(24, CGFloat(badge.text!.count) * 7 + 12)
+            let width = max(size, badgeWidth)
+            let height = size + Self.gap + Self.badgeHeight
+            frame = CGRect(x: 0, y: 0, width: width, height: height)
+            // Keep the photo (not the whole view) centred on the map coordinate.
+            centerOffset = CGPoint(x: 0, y: (Self.gap + Self.badgeHeight) / 2)
+
+            let circle = CGRect(x: (width - size) / 2, y: 0, width: size, height: size)
+            ring.frame = circle
+            ring.layer.cornerRadius = size / 2
+            ring.backgroundColor = ringColor
+            imageView.frame = circle.insetBy(dx: 3, dy: 3)
+            imageView.layer.cornerRadius = (size - 6) / 2
+            badge.frame = CGRect(x: (width - badgeWidth) / 2, y: size + Self.gap, width: badgeWidth, height: Self.badgeHeight)
+            badge.layer.cornerRadius = Self.badgeHeight / 2
+            badge.backgroundColor = isCatch ? UIColor(red: 0.12, green: 0.30, blue: 0.27, alpha: 0.92) : PhotoPinView.communityColor
+
+            imageView.backgroundColor = lead.map { UIColor($0.group.tint) } ?? ringColor
             imageView.image = lead.map { UIImage(systemName: $0.group.symbol) } ?? nil
             imageView.contentMode = .center
             loadTask?.cancel()
             guard let lead, let url = lead.iconURL ?? lead.imageURL else { return }
             loadTask = Task { [weak self] in
-                let img = await ImagePipeline.shared.image(for: url, maxPixel: 140)
+                let img = await ImagePipeline.shared.image(for: url, maxPixel: 160)
                 await MainActor.run {
                     guard let self, !Task.isCancelled, let img else { return }
                     self.imageView.contentMode = .scaleAspectFill

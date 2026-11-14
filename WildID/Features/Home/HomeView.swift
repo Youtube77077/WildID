@@ -90,7 +90,7 @@ struct HomeView: View {
             }
             .layoutPriority(1)
             Spacer(minLength: 4)
-            Button { router.tab = .wildlings } label: {
+            Button { router.showProfile = true } label: {
                 HStack(spacing: 6) {
                     ZStack {
                         Circle().stroke(Theme.sunlight.opacity(0.3), lineWidth: 3)
@@ -98,12 +98,13 @@ struct HomeView: View {
                         Text("\(level.level)").font(.system(size: 13, weight: .heavy, design: .rounded))
                     }
                     .frame(width: 30, height: 30)
+                    Image(systemName: "person.fill").font(.system(size: 13, weight: .bold))
                 }
-                .padding(5)
+                .padding(.leading, 5).padding(.trailing, 10).padding(.vertical, 5)
                 .background(Theme.card, in: Capsule())
             }
             .tint(.primary)
-            .accessibilityLabel("Explorer level \(level.level)")
+            .accessibilityLabel("Profile: explorer level \(level.level)")
             Button { router.showIdentify = true } label: {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 17, weight: .semibold))

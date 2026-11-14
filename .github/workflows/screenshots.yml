@@ -88,6 +88,7 @@ jobs:
           WAIT=14 shot 20-new-animal-during-sound-id $D -wildid-open sound -wildid-demo-toast new
           WAIT=14 shot 21-level-up $D -wildid-tab wildlings -wildid-demo-toast levelup
           WAIT=26 shot 22-wildling-kangaroo $D -wildid-pet "Macropus giganteus"
+          WAIT=24 shot 23-profile $D -wildid-open profile
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
         run: |

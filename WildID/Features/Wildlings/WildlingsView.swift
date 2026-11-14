@@ -34,7 +34,9 @@ struct WildlingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    explorerCard
+                    Button { router.showProfile = true } label: { explorerCard }
+                        .buttonStyle(PressableStyle())
+                        .accessibilityLabel("Open your profile and stats")
                     guideCard
                     tierStrip
                     if entries.isEmpty {
