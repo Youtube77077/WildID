@@ -59,9 +59,9 @@ Requirements: iOS 17.0 or later, iPhone. App size ≈ 50 MB (most of it is the B
 
 ### Alternative: install the .ipa (no Mac needed for building)
 
-Every push builds **`WildID.ipa`** and publishes it on this repo's **Releases** page as *"WildID latest build"*. iPhones only run apps signed for them, so the .ipa must be signed with your Apple ID once:
+Every push builds **`WildID.ipa`** (workflow *Build WildID.ipa* → artifact `WildID-ipa`), and the current build is also kept at [`dist/WildID.ipa`](dist/WildID.ipa). iPhones only run apps signed for them, so the .ipa must be signed with your Apple ID once:
 
-1. Download `WildID.ipa` from the *latest-build* release.
+1. Download `dist/WildID.ipa` (or the `WildID-ipa` artifact from the latest workflow run).
 2. Install **Sideloadly** (Windows/Mac) or **AltStore**, connect your iPhone, drag in the .ipa, enter your Apple ID → Start. (Use the same Apple ID every time so your saved catches stay readable after reinstalling.)
 3. On the iPhone: *Settings › General › VPN & Device Management* → trust your Apple ID; enable *Developer Mode* if asked.
 
