@@ -1,0 +1,106 @@
+{
+ "generated": "2026-11-14",
+ "groups": [
+  {
+   "group": "Birds",
+   "inat_species": 11387,
+   "inat_subspecies": 20244,
+   "species_with_observations": 11307,
+   "species_with_photos": 11290,
+   "species_with_sounds": 7625,
+   "gbif_accepted_species": 14641
+  },
+  {
+   "group": "Mammals",
+   "inat_species": 6870,
+   "inat_subspecies": 4521,
+   "species_with_observations": 4815,
+   "species_with_photos": 4813,
+   "species_with_sounds": 1107,
+   "gbif_accepted_species": 21100
+  },
+  {
+   "group": "Reptiles",
+   "inat_species": 12680,
+   "inat_subspecies": 2993,
+   "species_with_observations": 9732,
+   "species_with_photos": 9732,
+   "species_with_sounds": 195,
+   "gbif_accepted_species": 14158
+  },
+  {
+   "group": "Amphibians",
+   "inat_species": 9029,
+   "inat_subspecies": 196,
+   "species_with_observations": 6375,
+   "species_with_photos": 6359,
+   "species_with_sounds": 2000,
+   "gbif_accepted_species": 0
+  },
+  {
+   "group": "Fish (ray-finned + sharks/rays)",
+   "inat_species": 37068,
+   "inat_subspecies": 304,
+   "species_with_observations": 18727,
+   "species_with_photos": 18727,
+   "species_with_sounds": 72,
+   "gbif_accepted_species": 3484
+  },
+  {
+   "group": "Insects",
+   "inat_species": 517282,
+   "inat_subspecies": 36180,
+   "species_with_observations": 235991,
+   "species_with_photos": 235963,
+   "species_with_sounds": 2732,
+   "gbif_accepted_species": 1105104
+  },
+  {
+   "group": "Arachnids",
+   "inat_species": 69848,
+   "inat_subspecies": 898,
+   "species_with_observations": 18354,
+   "species_with_photos": 18354,
+   "species_with_sounds": 61,
+   "gbif_accepted_species": 112575
+  },
+  {
+   "group": "Molluscs",
+   "inat_species": 50768,
+   "inat_subspecies": 2239,
+   "species_with_observations": 21775,
+   "species_with_photos": 21775,
+   "species_with_sounds": 32,
+   "gbif_accepted_species": 178163
+  },
+  {
+   "group": "Crustaceans",
+   "inat_species": 21329,
+   "inat_subspecies": 382,
+   "species_with_observations": 9734,
+   "species_with_photos": 9734,
+   "species_with_sounds": 31,
+   "gbif_accepted_species": 85958
+  },
+  {
+   "group": "All animals",
+   "inat_species": 776090,
+   "inat_subspecies": 68540,
+   "species_with_observations": 350794,
+   "species_with_photos": 350731,
+   "species_with_sounds": 13885,
+   "gbif_accepted_species": 0
+  }
+ ],
+ "birdnet": {
+  "total_classes": 6522,
+  "non_event_classes": 13,
+  "by_class": {
+   "Aves": 6420,
+   "Amphibia": 41,
+   "Insecta": 40,
+   "Mammalia": 7,
+   "Unmatched": 1
+  }
+ }
+}
