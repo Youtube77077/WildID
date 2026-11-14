@@ -7,8 +7,7 @@
    "inat_subspecies": 20244,
    "species_with_observations": 11307,
    "species_with_photos": 11290,
-   "species_with_sounds": 7625,
-   "gbif_accepted_species": 14641
+   "species_with_sounds": 7625
   },
   {
    "group": "Mammals",
@@ -16,8 +15,7 @@
    "inat_subspecies": 4521,
    "species_with_observations": 4815,
    "species_with_photos": 4813,
-   "species_with_sounds": 1107,
-   "gbif_accepted_species": 21100
+   "species_with_sounds": 1107
   },
   {
    "group": "Reptiles",
@@ -25,8 +23,7 @@
    "inat_subspecies": 2993,
    "species_with_observations": 9732,
    "species_with_photos": 9732,
-   "species_with_sounds": 195,
-   "gbif_accepted_species": 14158
+   "species_with_sounds": 195
   },
   {
    "group": "Amphibians",
@@ -34,8 +31,7 @@
    "inat_subspecies": 196,
    "species_with_observations": 6375,
    "species_with_photos": 6359,
-   "species_with_sounds": 2000,
-   "gbif_accepted_species": 0
+   "species_with_sounds": 2000
   },
   {
    "group": "Fish (ray-finned + sharks/rays)",
@@ -43,17 +39,15 @@
    "inat_subspecies": 304,
    "species_with_observations": 18727,
    "species_with_photos": 18727,
-   "species_with_sounds": 72,
-   "gbif_accepted_species": 3484
+   "species_with_sounds": 72
   },
   {
    "group": "Insects",
    "inat_species": 517282,
    "inat_subspecies": 36180,
-   "species_with_observations": 235991,
-   "species_with_photos": 235963,
-   "species_with_sounds": 2732,
-   "gbif_accepted_species": 1105104
+   "species_with_observations": 235992,
+   "species_with_photos": 235964,
+   "species_with_sounds": 2732
   },
   {
    "group": "Arachnids",
@@ -61,8 +55,7 @@
    "inat_subspecies": 898,
    "species_with_observations": 18354,
    "species_with_photos": 18354,
-   "species_with_sounds": 61,
-   "gbif_accepted_species": 112575
+   "species_with_sounds": 61
   },
   {
    "group": "Molluscs",
@@ -70,8 +63,7 @@
    "inat_subspecies": 2239,
    "species_with_observations": 21775,
    "species_with_photos": 21775,
-   "species_with_sounds": 32,
-   "gbif_accepted_species": 178163
+   "species_with_sounds": 32
   },
   {
    "group": "Crustaceans",
@@ -79,17 +71,15 @@
    "inat_subspecies": 382,
    "species_with_observations": 9734,
    "species_with_photos": 9734,
-   "species_with_sounds": 31,
-   "gbif_accepted_species": 85958
+   "species_with_sounds": 31
   },
   {
    "group": "All animals",
    "inat_species": 776090,
    "inat_subspecies": 68540,
-   "species_with_observations": 350794,
-   "species_with_photos": 350731,
-   "species_with_sounds": 13885,
-   "gbif_accepted_species": 0
+   "species_with_observations": 350795,
+   "species_with_photos": 350732,
+   "species_with_sounds": 13885
   }
  ],
  "birdnet": {
