@@ -172,6 +172,7 @@ struct StatTile: View {
 struct WildIndexCard: View {
     let entry: WildIndexEntry
     var showScientific = true
+    @Environment(LocalRarityStore.self) private var localRarity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -193,7 +194,7 @@ struct WildIndexCard: View {
                         .padding(6)
                         .background(entry.group.tint, in: Circle())
                     Spacer()
-                    if let r = entry.rarity, r != .common { RarityBadge(rarity: r) }
+                    TierBadge(tier: localRarity.displayTier(for: entry), compact: true, here: localRarity.tier(for: entry) != nil)
                 }
                 .padding(8)
             }

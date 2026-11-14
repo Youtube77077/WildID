@@ -8,6 +8,9 @@ struct AddSightingSheet: View {
     var method: CatchMethod = .manual
     var photoData: Data? = nil
     var confidence: Double? = nil
+    /// Identified here and now (live Photo ID camera shot, Step by Step, or a sighting you're adding
+    /// on the spot). A photo picked from the library is not.
+    var liveCapture = true
 
     @Environment(\.dismiss) private var dismiss
     @Environment(LocationService.self) private var location
@@ -19,6 +22,8 @@ struct AddSightingSheet: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var extraPhoto: Data?
     @State private var saved = false
+    /// The user moved the pin or chose another place: the catch can't use the live GPS fix.
+    @State private var placeEdited = false
 
     var body: some View {
         NavigationStack {
@@ -89,7 +94,7 @@ struct AddSightingSheet: View {
             .navigationTitle("Confirm details")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $pickingLocation) {
-                LocationPickerView(initial: place) { place = $0 }
+                LocationPickerView(initial: place) { place = $0; placeEdited = true }
             }
             .onAppear {
                 if place == nil {
@@ -119,8 +124,13 @@ struct AddSightingSheet: View {
 
     private func save() {
         let data = (photoData ?? extraPhoto).flatMap { PhotoCompressor.jpeg($0, maxPixel: 1600) }
+        // Rarity XP only for "here and now": live GPS fix, pin not moved, not backdated.
+        var fix = location.verifiedFix
+        if !liveCapture || placeEdited || abs(date.timeIntervalSinceNow) > 15 * 60 { fix = nil }
+        if let f = fix, let p = place,
+           f.distance(from: CLLocation(latitude: p.latitude, longitude: p.longitude)) > 1000 { fix = nil }
         collection.addCatch(species, method: method, confidence: confidence, place: place, coordinate: place?.coordinate,
-                            date: date, photoData: data, notes: notes)
+                            date: date, photoData: data, notes: notes, verifiedFix: fix)
         saved = true
         Task {
             try? await Task.sleep(nanoseconds: 400_000_000)

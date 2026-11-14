@@ -39,7 +39,6 @@ struct WildIndexEntryView: View {
                     ScientificName(name: entry.scientificName, font: .title3)
                     FlowLayout(spacing: 6) {
                         Pill(text: entry.group.singular, symbol: entry.group.symbol, tint: entry.group.tint)
-                        if let r = entry.rarity { RarityBadge(rarity: r) }
                         if let c = entry.conservationCode { ConservationBadge(code: c) }
                         if let f = entry.familyName { Pill(text: f, tint: .gray) }
                     }
@@ -51,9 +50,8 @@ struct WildIndexEntryView: View {
                     StatTile(value: "\(Set(entry.catches.compactMap(\.placeName)).count)", label: "places", symbol: "mappin")
                 }
 
-                if entry.rarity != nil {
-                    Text(Rarity.explanation).font(.caption).foregroundStyle(Theme.secondaryText)
-                }
+                RarityPanel(entry: entry)
+                Text(Rarity.explanation).font(.caption).foregroundStyle(Theme.secondaryText)
 
                 let points = entry.catches.compactMap(\.coordinate)
                 if !points.isEmpty {

@@ -472,6 +472,7 @@ final class SoundIDSession {
         let place = location?.currentPlace ?? location?.activePlace
         let coordinate = location?.current?.coordinate ?? place?.coordinate
         collection.addCatch(d.species, method: .sound, confidence: Double(d.maxConfidence), place: place,
-                            coordinate: coordinate, date: Date(), clipFileName: clipName, recordingID: sessionID)
+                            coordinate: coordinate, date: Date(), clipFileName: clipName, recordingID: sessionID,
+                            verifiedFix: location?.verifiedFix)
     }
 }

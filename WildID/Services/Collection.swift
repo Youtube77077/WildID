@@ -170,11 +170,14 @@ final class CollectionManager {
         Set(((try? context.fetch(FetchDescriptor<WildIndexEntry>())) ?? []).map(\.key))
     }
 
+    /// Adds a catch. `verifiedFix` is the live GPS fix (see `LocationService.verifiedFix`) when the
+    /// animal was identified here and now. Only then can the catch earn more than Common XP: its
+    /// "caught as" tier is worked out from that exact spot and locked (see `scoreCatch`).
     @discardableResult
     func addCatch(_ species: SpeciesRef, method: CatchMethod, confidence: Double?, place: WildPlace?,
                   coordinate: CLLocationCoordinate2D?, date: Date = Date(), photoData: Data? = nil,
                   clipFileName: String? = nil, recordingID: UUID? = nil, notes: String = "",
-                  announce: Bool = true) -> (entry: WildIndexEntry, isNew: Bool)? {
+                  verifiedFix: CLLocation? = nil, announce: Bool = true) -> (entry: WildIndexEntry, isNew: Bool)? {
         guard !species.isGroupLevel else { return nil }
         let isNew: Bool
         let entry: WildIndexEntry
@@ -194,13 +197,18 @@ final class CollectionManager {
         let coord = coordinate ?? place?.coordinate
         let previous = entry.catches
         let levelBefore = entry.level
-        let xp = XPRules.award(method: method, tier: entry.tier, isFirst: isNew, previous: previous, now: Date())
+        // Scored as Common first (the minimum); `scoreCatch` tops it up once the tier is known.
+        let xp = XPRules.award(method: method, tier: .common, isFirst: isNew, previous: previous, now: Date())
         let c = Catch(date: date, coordinate: coord, placeName: place?.name, countryCode: place?.countryCode,
                       method: method, confidence: confidence, notes: notes, photoData: photoData,
                       audioClipFileName: clipFileName, recordingID: recordingID)
         c.xpAwarded = xp
         c.isFirstCatch = isNew
         c.awardedAt = Date()
+        if let verifiedFix {
+            c.verifiedLatitude = verifiedFix.coordinate.latitude
+            c.verifiedLongitude = verifiedFix.coordinate.longitude
+        }
         context.insert(c)
         c.entry = entry
         entry.xp += xp
@@ -208,23 +216,40 @@ final class CollectionManager {
         revision += 1
         BackupStore.shared.scheduleBackup(context: context)
 
-        if isNew {
-            if announce && settings.newAnimalPopups {
+        let catchID = c.id
+        let key = entry.key
+        let taxonID = entry.taxonID
+        // Announce once the tier is known, or after 2.5 s if the network is slow.
+        let announcer = Announcer()
+        let wantsToast = announce && settings.newAnimalPopups
+        func announceNow() {
+            guard wantsToast, !announcer.done, let e = self.entry(for: key) else { return }
+            announcer.done = true
+            let tier = e.catches.first { $0.id == catchID }?.lockedTier ?? .common
+            let gained = e.catches.first { $0.id == catchID }?.xpAwarded ?? xp
+            if isNew {
                 toasts.show(NewAnimalEvent(species: species, totalSpecies: speciesCount(), kind: .newAnimal,
-                                           xp: xp, level: entry.level, tier: entry.tier))
+                                           xp: gained, level: e.level, tier: tier))
+            } else if e.level > levelBefore {
+                toasts.show(NewAnimalEvent(species: species, totalSpecies: speciesCount(), kind: .levelUp,
+                                           xp: gained, level: e.level, tier: tier, displayName: e.displayName))
             }
-            if settings.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-            if let taxonID = entry.taxonID {
-                let key = entry.key
-                Task { await enrich(key: key, taxonID: taxonID, at: coord) }
-            }
-        } else if entry.level > levelBefore, announce, settings.newAnimalPopups {
-            toasts.show(NewAnimalEvent(species: species, totalSpecies: speciesCount(), kind: .levelUp,
-                                       xp: xp, level: entry.level, tier: entry.tier, displayName: entry.displayName))
-            if settings.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        }
+        if isNew, settings.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+        Task {
+            if isNew, let taxonID { await enrich(key: key, taxonID: taxonID) }
+            await scoreCatch(id: catchID, key: key)
+            announceNow()
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            announceNow()
         }
         return (entry, isNew)
     }
+
+    /// Makes sure a pop-up is shown only once per catch.
+    private final class Announcer { var done = false }
 
     /// Total XP and explorer level across all animals.
     func totalXP() -> Int {
@@ -239,37 +264,73 @@ final class CollectionManager {
         BackupStore.shared.scheduleBackup(context: context)
     }
 
-    /// Adds family/order/class, conservation status and local rarity to a new entry.
+    /// Adds family/order/class and conservation status to a new entry.
     /// Works by key (not by object) so it is safe if the entry was deleted meanwhile.
-    func enrich(key: String, taxonID: Int, at coordinate: CLLocationCoordinate2D?) async {
-        let taxon = try? await api.taxon(id: taxonID)
-        var localCount: Int? = nil
-        if let coordinate { localCount = try? await api.observationCount(taxonID: taxonID, near: coordinate) }
-        guard let entry = entry(for: key) else { return }
-        if let taxon {
-            entry.familyName = taxon.ancestor(rank: "family")?.name
-            entry.orderName = taxon.ancestor(rank: "order")?.name
-            entry.className = taxon.ancestor(rank: "class")?.name
-            entry.conservationCode = taxon.conservation_status?.status?.uppercased()
-            if entry.photoURLString == nil { entry.photoURLString = taxon.photoURL?.absoluteString }
-            entry.groupRaw = taxon.group.rawValue
+    func enrich(key: String, taxonID: Int) async {
+        guard let taxon = try? await api.taxon(id: taxonID), let entry = entry(for: key) else { return }
+        entry.familyName = taxon.ancestor(rank: "family")?.name
+        entry.orderName = taxon.ancestor(rank: "order")?.name
+        entry.className = taxon.ancestor(rank: "class")?.name
+        entry.conservationCode = taxon.conservation_status?.status?.uppercased()
+        if entry.photoURLString == nil { entry.photoURLString = taxon.photoURL?.absoluteString }
+        entry.groupRaw = taxon.group.rawValue
+        try? context.save()
+        revision += 1
+    }
+
+    /// Works out and locks a catch's "caught as" tier, then tops up its XP if it deserves more
+    /// than the Common XP it started with. A catch is only scored once; if the network is down
+    /// it stays unscored and `scorePendingCatches()` tries again later.
+    func scoreCatch(id: UUID, key: String) async {
+        guard let entry = entry(for: key), let c = entry.catches.first(where: { $0.id == id }), c.tierRaw == nil else { return }
+        guard let fix = c.verifiedCoordinate else {
+            // Catches from before locked tiers existed keep the tier their first catch was given.
+            if c.isFirstCatch, let legacy = entry.rarity {
+                lock(c, tier: legacy, reason: .verified, in: entry)
+            } else {
+                lock(c, tier: .common, reason: .unverifiedLocation, in: entry)
+            }
+            return
         }
-        if let localCount {
-            entry.localObservationCount = localCount
-            let tier = Rarity.from(localObservations: localCount, conservationCode: entry.conservationCode)
-            entry.rarityRaw = tier.rawValue
-            // The first catch was scored as Common before the tier was known: top it up.
-            if let first = entry.catches.first(where: { $0.isFirstCatch }) {
-                let deserved = Int((Double(XPRules.firstCatchXP(tier)) * XPRules.methodFactor(first.method)).rounded())
-                if deserved > first.xpAwarded {
-                    entry.xp += deserved - first.xpAwarded
-                    first.xpAwarded = deserved
-                }
+        guard let taxonID = entry.taxonID else { return }
+        guard let local = try? await api.observationCount(taxonID: taxonID, near: fix, radiusKm: 50) else { return }
+        var reason = Rarity.Lock.verified
+        var tier = Rarity.from(localObservations: local, conservationCode: entry.conservationCode)
+        if local == 0 {
+            guard let wide = try? await api.observationCount(taxonID: taxonID, near: fix, radiusKm: 300) else { return }
+            if wide == 0 { tier = .common; reason = .outOfRange }
+        }
+        guard let entry = self.entry(for: key), let c = entry.catches.first(where: { $0.id == id }), c.tierRaw == nil else { return }
+        if c.isFirstCatch { entry.localObservationCount = local }
+        lock(c, tier: tier, reason: reason, in: entry)
+    }
+
+    private func lock(_ c: Catch, tier: Rarity, reason: Rarity.Lock, in entry: WildIndexEntry) {
+        c.tierRaw = tier.rawValue
+        c.tierLockRaw = reason.rawValue
+        // XP: only catches that earned XP at all (not cooldown-blocked repeats) are topped up.
+        if c.isFirstCatch || c.xpAwarded > 0 {
+            let base = c.isFirstCatch ? XPRules.firstCatchXP(tier) : XPRules.repeatXP(tier)
+            let deserved = Int((Double(base) * XPRules.methodFactor(c.method)).rounded())
+            if deserved > c.xpAwarded {
+                entry.xp += deserved - c.xpAwarded
+                c.xpAwarded = deserved
             }
         }
+        let best = entry.catches.compactMap(\.lockedTier).max() ?? .common
+        entry.rarityRaw = best.rawValue
         try? context.save()
         revision += 1
         BackupStore.shared.scheduleBackup(context: context)
+    }
+
+    /// Scores catches that were saved while offline.
+    func scorePendingCatches() async {
+        let pending = ((try? context.fetch(FetchDescriptor<Catch>())) ?? []).filter { $0.tierRaw == nil }
+        for c in pending {
+            guard let key = c.entry?.key else { continue }
+            await scoreCatch(id: c.id, key: key)
+        }
     }
 
     func delete(_ entry: WildIndexEntry) {

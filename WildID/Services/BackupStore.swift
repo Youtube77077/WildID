@@ -38,6 +38,11 @@ final class BackupStore {
         var xpAwarded: Int
         var isFirstCatch: Bool
         var awardedAt: Date?
+        // Optional so backups written by older versions still decode.
+        var tier: String? = nil
+        var tierLock: String? = nil
+        var verifiedLatitude: Double? = nil
+        var verifiedLongitude: Double? = nil
     }
 
     struct BackupEntry: Codable {
@@ -115,7 +120,8 @@ final class BackupStore {
                             BackupCatch(id: c.id, date: c.date, latitude: c.latitude, longitude: c.longitude, placeName: c.placeName,
                                         countryCode: c.countryCode, method: c.methodRaw, confidence: c.confidence, notes: c.notes,
                                         recordingID: c.recordingID, xpAwarded: c.xpAwarded, isFirstCatch: c.isFirstCatch,
-                                        awardedAt: c.awardedAt)
+                                        awardedAt: c.awardedAt, tier: c.tierRaw, tierLock: c.tierLockRaw,
+                                        verifiedLatitude: c.verifiedLatitude, verifiedLongitude: c.verifiedLongitude)
                         })
         })
     }
@@ -170,6 +176,10 @@ final class BackupStore {
                 c.xpAwarded = bc.xpAwarded
                 c.isFirstCatch = bc.isFirstCatch
                 c.awardedAt = bc.awardedAt
+                c.tierRaw = bc.tier
+                c.tierLockRaw = bc.tierLock
+                c.verifiedLatitude = bc.verifiedLatitude
+                c.verifiedLongitude = bc.verifiedLongitude
                 context.insert(c)
                 c.entry = e
             }

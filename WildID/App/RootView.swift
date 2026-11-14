@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct RootView: View {
@@ -8,6 +9,9 @@ struct RootView: View {
     @Environment(SoundIDSession.self) private var sound
     @Environment(Connectivity.self) private var connectivity
     @Environment(AppSettings.self) private var settings
+    @Environment(CollectionManager.self) private var collection
+    @Environment(LocalRarityStore.self) private var localRarity
+    @Query private var allEntries: [WildIndexEntry]
 
     var body: some View {
         @Bindable var router = router
@@ -83,6 +87,14 @@ struct RootView: View {
         .task(id: location.activePlace?.name) {
             await nearby.load(for: location.activePlace)
         }
+        // "Near you now" rarity follows where you actually are (GPS), else the chosen place.
+        .task(id: "\(location.currentPlace?.name ?? location.activePlace?.name ?? "-")|\(allEntries.count)|\(connectivity.isOnline)") {
+            await localRarity.refresh(entries: allEntries, place: location.currentPlace ?? location.activePlace)
+        }
+        // Catches saved offline get their locked tier once the network is back.
+        .task(id: connectivity.isOnline) {
+            if connectivity.isOnline { await collection.scorePendingCatches() }
+        }
     }
 
     /// Debug/CI launch arguments used by the screenshot workflow, e.g.
@@ -108,6 +120,16 @@ struct RootView: View {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 9_000_000_000)   // let demo data resolve first
                 router.presentedPetKey = name.lowercased()
+            }
+        }
+        if let kind = value("-wildid-demo-toast"), args.contains("-wildid-demo-data") {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 10_000_000_000)   // after the sample catches settle
+                if kind == "levelup" {
+                    await DemoData.showLevelUpAnimation(toasts: toasts, collection: collection)
+                } else {
+                    await DemoData.showCatchAnimation(toasts: toasts, collection: collection)
+                }
             }
         }
         if let name = value("-wildid-entry") {

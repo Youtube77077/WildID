@@ -9,6 +9,8 @@ struct MapPin: Identifiable, Equatable {
     let title: String
     let subtitle: String
     let imageURL: URL?
+    /// Species picture used for the round map icon (falls back to `imageURL`).
+    var iconURL: URL? = nil
     let kind: Kind
     let group: AnimalGroup
     let species: SpeciesRef?
@@ -56,7 +58,7 @@ struct WildMKMapView: UIViewRepresentable {
         map.isZoomEnabled = interactive
         map.isPitchEnabled = false
         map.register(PhotoPinView.self, forAnnotationViewWithReuseIdentifier: PhotoPinView.reuseID)
-        map.register(ObservationPinView.self, forAnnotationViewWithReuseIdentifier: ObservationPinView.reuseID)
+        map.register(PhotoPinView.self, forAnnotationViewWithReuseIdentifier: PhotoPinView.observationReuseID)
         map.register(ClusterPinView.self, forAnnotationViewWithReuseIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier)
         applyConfiguration(map)
         return map
@@ -153,7 +155,7 @@ struct WildMKMapView: UIViewRepresentable {
                 v.configure(a.pin)
                 return v
             case .observation:
-                let v = mapView.dequeueReusableAnnotationView(withIdentifier: ObservationPinView.reuseID, for: a) as! ObservationPinView
+                let v = mapView.dequeueReusableAnnotationView(withIdentifier: PhotoPinView.observationReuseID, for: a) as! PhotoPinView
                 v.configure(a.pin)
                 return v
             }
@@ -206,49 +208,61 @@ final class WildTileOverlay: MKTileOverlay {
     }
 }
 
-/// Round photo pin for the user's own catches.
+/// Round animal icon used for every pin: your catches (bigger, white ring in the animal group's
+/// colour) and community sightings (smaller, orange ring). Shows the group symbol until the
+/// species photo has loaded.
 final class PhotoPinView: MKAnnotationView {
     static let reuseID = "photo-pin"
+    static let observationReuseID = "obs-photo-pin"
+    static let communityColor = UIColor(red: 0.91, green: 0.64, blue: 0.24, alpha: 1)
     private let imageView = UIImageView()
     private let ring = UIView()
     private var loadTask: Task<Void, Never>?
 
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        frame = CGRect(x: 0, y: 0, width: 46, height: 46)
-        centerOffset = .zero
-        ring.frame = bounds
-        ring.layer.cornerRadius = 23
-        ring.layer.borderWidth = 3
         ring.layer.borderColor = UIColor.white.cgColor
         ring.layer.shadowColor = UIColor.black.cgColor
-        ring.layer.shadowOpacity = 0.25
+        ring.layer.shadowOpacity = 0.3
         ring.layer.shadowRadius = 4
         ring.layer.shadowOffset = CGSize(width: 0, height: 2)
         addSubview(ring)
-        imageView.frame = bounds.insetBy(dx: 3, dy: 3)
-        imageView.layer.cornerRadius = 20
         imageView.clipsToBounds = true
         imageView.contentMode = .scaleAspectFill
         addSubview(imageView)
         collisionMode = .circle
-        displayPriority = .required
+        centerOffset = .zero
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private func layout(size: CGFloat, ringWidth: CGFloat) {
+        frame = CGRect(x: 0, y: 0, width: size, height: size)
+        ring.frame = bounds
+        ring.layer.cornerRadius = size / 2
+        ring.layer.borderWidth = ringWidth
+        imageView.frame = bounds.insetBy(dx: ringWidth, dy: ringWidth)
+        imageView.layer.cornerRadius = (size - 2 * ringWidth) / 2
+    }
+
     func configure(_ pin: MapPin) {
-        clusteringIdentifier = "catch"
-        ring.backgroundColor = UIColor(pin.group.tint)
+        let mine = pin.kind == .myCatch
+        layout(size: mine ? 46 : 36, ringWidth: mine ? 3 : 2.5)
+        clusteringIdentifier = mine ? "catch" : "obs"
+        displayPriority = mine ? .required : .defaultLow
+        ring.backgroundColor = mine ? UIColor(pin.group.tint) : Self.communityColor
+        ring.layer.borderColor = mine ? UIColor.white.cgColor : Self.communityColor.cgColor
         imageView.image = UIImage(systemName: pin.group.symbol)
+        imageView.contentMode = .center
         imageView.tintColor = .white
         imageView.backgroundColor = UIColor(pin.group.tint)
         loadTask?.cancel()
-        guard let url = pin.imageURL else { return }
+        guard let url = pin.iconURL ?? pin.imageURL else { return }
         loadTask = Task { [weak self] in
             let img = await ImagePipeline.shared.image(for: url, maxPixel: 120)
             await MainActor.run {
                 guard let self, !Task.isCancelled, let img else { return }
+                self.imageView.contentMode = .scaleAspectFill
                 self.imageView.image = img
             }
         }
@@ -261,35 +275,30 @@ final class PhotoPinView: MKAnnotationView {
     }
 }
 
-/// Small marker for community observations.
-final class ObservationPinView: MKMarkerAnnotationView {
-    static let reuseID = "obs-pin"
-    func configure(_ pin: MapPin) {
-        clusteringIdentifier = "obs"
-        markerTintColor = UIColor(red: 0.91, green: 0.64, blue: 0.24, alpha: 1)
-        glyphImage = UIImage(systemName: pin.group.symbol)
-        displayPriority = .defaultLow
-        titleVisibility = .hidden
-        subtitleVisibility = .hidden
-    }
-}
-
+/// A group of nearby pins: the photo of one of the animals in it, with a count badge.
 final class ClusterPinView: MKAnnotationView {
-    private let label = UILabel()
+    private let imageView = UIImageView()
+    private let badge = UILabel()
+    private var loadTask: Task<Void, Never>?
+
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        frame = CGRect(x: 0, y: 0, width: 40, height: 40)
-        layer.cornerRadius = 20
-        layer.borderWidth = 3
         layer.borderColor = UIColor.white.cgColor
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.25
+        layer.shadowOpacity = 0.3
         layer.shadowRadius = 4
-        label.frame = bounds
-        label.textAlignment = .center
-        label.font = .systemFont(ofSize: 14, weight: .bold)
-        label.textColor = .white
-        addSubview(label)
+        layer.shadowOffset = CGSize(width: 0, height: 2)
+        imageView.clipsToBounds = true
+        imageView.contentMode = .scaleAspectFill
+        imageView.tintColor = .white
+        addSubview(imageView)
+        badge.textAlignment = .center
+        badge.font = .systemFont(ofSize: 12, weight: .heavy)
+        badge.textColor = .white
+        badge.layer.borderColor = UIColor.white.cgColor
+        badge.layer.borderWidth = 1.5
+        badge.clipsToBounds = true
+        addSubview(badge)
         collisionMode = .circle
         displayPriority = .defaultHigh
     }
@@ -298,14 +307,38 @@ final class ClusterPinView: MKAnnotationView {
     override var annotation: MKAnnotation? {
         didSet {
             guard let cluster = annotation as? MKClusterAnnotation else { return }
-            let isCatch = (cluster.memberAnnotations.first as? PinAnnotation)?.pin.kind == .myCatch
-            backgroundColor = isCatch ? UIColor(red: 0.20, green: 0.49, blue: 0.31, alpha: 1) : UIColor(red: 0.91, green: 0.64, blue: 0.24, alpha: 1)
-            let n = cluster.memberAnnotations.count
-            label.text = n > 99 ? "99+" : "\(n)"
-            let size: CGFloat = n > 20 ? 48 : 40
-            frame.size = CGSize(width: size, height: size)
+            let pins = cluster.memberAnnotations.compactMap { ($0 as? PinAnnotation)?.pin }
+            let isCatch = pins.first?.kind == .myCatch
+            let color = isCatch ? UIColor(red: 0.20, green: 0.49, blue: 0.31, alpha: 1) : PhotoPinView.communityColor
+            let size: CGFloat = isCatch ? 52 : 42
+            frame = CGRect(x: 0, y: 0, width: size, height: size)
             layer.cornerRadius = size / 2
-            label.frame = bounds
+            layer.borderWidth = 3
+            layer.borderColor = (isCatch ? UIColor.white : color).cgColor
+            backgroundColor = color
+            imageView.frame = bounds.insetBy(dx: 3, dy: 3)
+            imageView.layer.cornerRadius = (size - 6) / 2
+            let n = cluster.memberAnnotations.count
+            badge.text = n > 99 ? "99+" : "\(n)"
+            let w = max(20, CGFloat(badge.text!.count) * 8 + 10)
+            badge.frame = CGRect(x: size - w + 6, y: -4, width: w, height: 20)
+            badge.layer.cornerRadius = 10
+            badge.backgroundColor = color
+            // Show the most recent animal in the group.
+            let lead = pins.max { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) } ?? pins.first
+            imageView.backgroundColor = lead.map { UIColor($0.group.tint) } ?? color
+            imageView.image = lead.map { UIImage(systemName: $0.group.symbol) } ?? nil
+            imageView.contentMode = .center
+            loadTask?.cancel()
+            guard let lead, let url = lead.iconURL ?? lead.imageURL else { return }
+            loadTask = Task { [weak self] in
+                let img = await ImagePipeline.shared.image(for: url, maxPixel: 140)
+                await MainActor.run {
+                    guard let self, !Task.isCancelled, let img else { return }
+                    self.imageView.contentMode = .scaleAspectFill
+                    self.imageView.image = img
+                }
+            }
         }
     }
 }

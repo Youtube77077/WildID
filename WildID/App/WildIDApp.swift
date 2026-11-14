@@ -33,6 +33,7 @@ struct WildIDApp: App {
                 .environment(env.router)
                 .environment(env.nearby)
                 .environment(env.daily)
+                .environment(env.localRarity)
                 .environment(env.sound)
                 .environment(env.collection)
                 .environment(AudioPlayer.shared)

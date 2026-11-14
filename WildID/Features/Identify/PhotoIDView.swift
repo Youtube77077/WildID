@@ -204,6 +204,8 @@ struct PhotoIDView: View {
     @State private var image: UIImage?
     @State private var imageData: Data?
     @State private var showCamera = false
+    /// Taken just now with the camera (library photos can't prove where or when they were taken).
+    @State private var fromCamera = false
     @State private var analyzing = false
     @State private var matches: [PhotoMatch] = []
     @State private var selected: PhotoMatch?
@@ -245,18 +247,19 @@ struct PhotoIDView: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { img in
-                    if let img { setImage(img, data: img.jpegData(compressionQuality: 0.9)) }
+                    if let img { setImage(img, data: img.jpegData(compressionQuality: 0.9)); fromCamera = true }
                 }
                 .ignoresSafeArea()
             }
             .sheet(item: $confirmSpecies) { s in
-                AddSightingSheet(species: s, method: .photo, photoData: imageData, confidence: selected?.confidence)
+                AddSightingSheet(species: s, method: .photo, photoData: imageData, confidence: selected?.confidence, liveCapture: fromCamera)
             }
             .onChange(of: pickerItem) { _, item in
                 Task {
                     if let data = try? await item?.loadTransferable(type: Data.self),
                        let img = ImagePipeline.downsample(data, maxPixel: 2000) {
                         setImage(img, data: data)
+                        fromCamera = false
                     }
                 }
             }

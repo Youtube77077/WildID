@@ -308,6 +308,20 @@ struct INaturalistAPI {
         return try await http.get(INatPage<INatObservation>.self, from: url, maxAge: 60 * 60 * 24 * 7).total_results ?? 0
     }
 
+    /// Research-grade observation counts within `radiusKm` for many taxa in one request (leaf taxa,
+    /// so a species observed only as subspecies comes back as those subspecies rows).
+    func localCounts(taxonIDs: [Int], near coordinate: CLLocationCoordinate2D, radiusKm: Double = 50) async throws -> [INatSpeciesCount] {
+        let url = URL.build("\(Self.base)/observations/species_counts", [
+            "taxon_id": taxonIDs.map(String.init).joined(separator: ","),
+            "lat": String(format: "%.3f", coordinate.latitude),
+            "lng": String(format: "%.3f", coordinate.longitude),
+            "radius": String(Int(radiusKm)),
+            "quality_grade": "research",
+            "per_page": "500",
+        ])
+        return try await http.get(INatPage<INatSpeciesCount>.self, from: url, maxAge: 60 * 60 * 24 * 3).results
+    }
+
     /// Openly licensed sound recordings attached to research-grade observations.
     func sounds(taxonID: Int, perPage: Int = 12) async throws -> [(INatObservation, INatSound)] {
         let url = URL.build("\(Self.base)/observations", [

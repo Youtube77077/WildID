@@ -314,6 +314,44 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(XPRules.award(method: .sound, tier: .common, isFirst: false, previous: entry.catches, now: now), 0)
     }
 
+    /// Catches without a live GPS fix are locked as Common; catches from before locked tiers
+    /// existed keep the tier their first catch was given (and its XP).
+    func testCatchTierLocking() async throws {
+        let (m, _) = try makeManager()
+        let owl = SpeciesRef(scientificName: "Tyto alba", commonName: "Barn Owl", group: .birds)
+        m.addCatch(owl, method: .photo, confidence: nil, place: nil, coordinate: nil, announce: false)
+        let entry = try XCTUnwrap(m.entry(for: "Tyto alba"))
+        await m.scoreCatch(id: entry.catches[0].id, key: entry.key)
+        XCTAssertEqual(entry.catches[0].lockedTier, .common)
+        XCTAssertEqual(entry.catches[0].tierLock, .unverifiedLocation)
+        XCTAssertEqual(entry.xp, XPRules.firstCatchXP(.common))
+
+        let fox = SpeciesRef(scientificName: "Vulpes lagopus", commonName: "Arctic Fox", group: .mammals)
+        m.addCatch(fox, method: .photo, confidence: nil, place: nil, coordinate: nil, announce: false)
+        let legacy = try XCTUnwrap(m.entry(for: "Vulpes lagopus"))
+        legacy.rarityRaw = Rarity.legendary.rawValue   // as stored by older versions
+        legacy.catches[0].tierRaw = nil
+        await m.scoreCatch(id: legacy.catches[0].id, key: legacy.key)
+        XCTAssertEqual(legacy.catches[0].lockedTier, .legendary)
+        XCTAssertEqual(legacy.xp, XPRules.firstCatchXP(.legendary))
+        // Locked: scoring again changes nothing.
+        await m.scoreCatch(id: legacy.catches[0].id, key: legacy.key)
+        XCTAssertEqual(legacy.xp, XPRules.firstCatchXP(.legendary))
+    }
+
+    /// Only fresh, accurate GPS fixes can unlock rarity XP.
+    func testOnlyTrustedFixesCount() {
+        let now = Date()
+        let here = CLLocationCoordinate2D(latitude: 52.46, longitude: 5.03)
+        func fix(age: TimeInterval, accuracy: Double) -> CLLocation {
+            CLLocation(coordinate: here, altitude: 0, horizontalAccuracy: accuracy, verticalAccuracy: 10, timestamp: now.addingTimeInterval(-age))
+        }
+        XCTAssertNotNil(LocationService.trusted(fix(age: 5, accuracy: 30), now: now))
+        XCTAssertNil(LocationService.trusted(fix(age: 3600, accuracy: 30), now: now))   // stale
+        XCTAssertNil(LocationService.trusted(fix(age: 5, accuracy: 5000), now: now))    // too vague
+        XCTAssertNil(LocationService.trusted(fix(age: 5, accuracy: -1), now: now))      // invalid
+    }
+
     func testNicknameAndBackupRoundTrip() throws {
         let (m, c) = try makeManager()
         let heron = SpeciesRef(scientificName: "Ardea cinerea", commonName: "Grey Heron", group: .birds)

@@ -24,9 +24,16 @@ enum CatchMethod: String, Codable, CaseIterable {
     }
 }
 
-/// Rarity tier, from Common to Legendary, based on how often a species is recorded near where
-/// you found it (research-grade iNaturalist observations within 50 km), raised for threatened
-/// species (IUCN Red List). It describes local scarcity, not a global population count.
+/// Rarity tier, from Common to Legendary, based on how often a species is recorded near a place
+/// (research-grade iNaturalist observations within 50 km), raised for threatened species (IUCN
+/// Red List). It describes local scarcity, not a global population count.
+///
+/// Two kinds of tier are used:
+/// - **Caught as** (locked): worked out once, from the verified GPS position at the moment of the
+///   catch. It decides that catch's XP and never changes afterwards.
+/// - **Near you now** (live): the same rule applied to where you are right now. It is only a label —
+///   a kangaroo caught as Common in Australia shows "Legendary" back in the Netherlands and
+///   "Common" again in Australia — and never changes XP.
 enum Rarity: String, Codable, CaseIterable, Comparable {
     case common, uncommon, rare, epic, legendary
 
@@ -76,7 +83,26 @@ enum Rarity: String, Codable, CaseIterable, Comparable {
         }
     }
 
-    static let explanation = "Rarity tiers come from how often people record the species within 50 km of where you found it (iNaturalist research-grade observations): Common ≥ 500, Uncommon 100–499, Rare 20–99, Epic 5–19, Legendary < 5. Threatened species are raised (Vulnerable → at least Rare, Endangered → at least Epic, Critically Endangered → Legendary). It describes local scarcity, not the world population."
+    static let explanation = "Rarity comes from how often people record the species within 50 km (iNaturalist research-grade observations): Common ≥ 500, Uncommon 100–499, Rare 20–99, Epic 5–19, Legendary < 5. Threatened species are raised (Vulnerable → at least Rare, Endangered → at least Epic, Critically Endangered → Legendary). Each catch is locked to the tier of the exact spot where you caught it, which decides its XP. The badge on your Wildlings shows the tier near where you are now, so it changes when you travel. That's just a label and doesn't change XP."
+
+    /// Why a catch earned Common XP whatever the species' local tier.
+    enum Lock: String, Codable {
+        /// Tier from a fresh, accurate, real GPS fix at the moment of the catch.
+        case verified
+        /// No trustworthy GPS fix (location off, chosen by hand, backdated, too inaccurate,
+        /// or reported as simulated by iOS): scored as Common.
+        case unverifiedLocation
+        /// No wild records within 300 km: most likely a zoo, pet or escaped animal (or a wrong ID).
+        case outOfRange
+
+        var explanation: String {
+            switch self {
+            case .verified: "Tier of the spot where you caught it, locked at that moment."
+            case .unverifiedLocation: "Scored as Common because the location wasn't a live GPS fix (chosen by hand, backdated, inaccurate or simulated)."
+            case .outOfRange: "Scored as Common: there are no wild records within 300 km, so it's most likely a zoo, pet or escaped animal."
+            }
+        }
+    }
 }
 
 /// Experience rules for the Wildlings. Designed so it can't be farmed:
@@ -199,8 +225,12 @@ final class WildIndexEntry {
     var group: AnimalGroup { AnimalGroup(rawValue: groupRaw) ?? .other }
     var photoURL: URL? { photoURLString.flatMap(URL.init(string:)) }
     var rarity: Rarity? { rarityRaw.flatMap { Rarity(storedValue: $0) } }
-    /// Tier used by the Wildlings (Common until local data is known).
+    /// Best "caught as" tier over all catches (Common until scored). Earned, so it never drops.
     var tier: Rarity { rarity ?? .common }
+    /// The catch that earned `tier`.
+    var bestCatch: Catch? {
+        catches.filter { $0.lockedTier != nil }.max { ($0.lockedTier!.rank, $1.date) < ($1.lockedTier!.rank, $0.date) }
+    }
     var level: Int { XPRules.level(forXP: xp) }
     var displayName: String { (nickname?.isEmpty == false) ? nickname! : commonName }
     var methods: Set<CatchMethod> { Set(catches.map(\.method)) }
@@ -228,6 +258,12 @@ final class Catch {
     var isFirstCatch: Bool = false
     /// When XP was granted (not the sighting date, which a user can backdate).
     var awardedAt: Date? = nil
+    /// Locked "caught as" tier (nil until scored) and why it was scored that way.
+    var tierRaw: String? = nil
+    var tierLockRaw: String? = nil
+    /// The GPS fix used for scoring, kept apart from the editable display coordinate.
+    var verifiedLatitude: Double? = nil
+    var verifiedLongitude: Double? = nil
     var entry: WildIndexEntry?
 
     init(date: Date, coordinate: CLLocationCoordinate2D?, placeName: String?, countryCode: String?,
@@ -247,6 +283,12 @@ final class Catch {
         self.recordingID = recordingID
     }
 
+    var lockedTier: Rarity? { tierRaw.flatMap { Rarity(storedValue: $0) } }
+    var tierLock: Rarity.Lock? { tierLockRaw.flatMap(Rarity.Lock.init(rawValue:)) }
+    var verifiedCoordinate: CLLocationCoordinate2D? {
+        guard let verifiedLatitude, let verifiedLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: verifiedLatitude, longitude: verifiedLongitude)
+    }
     var method: CatchMethod { CatchMethod(rawValue: methodRaw) ?? .manual }
 
     var coordinate: CLLocationCoordinate2D? {

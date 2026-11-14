@@ -36,10 +36,13 @@ extension Rarity {
 struct TierBadge: View {
     let tier: Rarity
     var compact = false
+    /// Shows a location arrow: this is the tier near where you are now (live), not a locked one.
+    var here = false
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: tier.symbol).font(.system(size: compact ? 8 : 10, weight: .heavy))
             Text(tier.title.uppercased()).font(.system(size: compact ? 9 : 11, weight: .heavy, design: .rounded)).tracking(0.6)
+            if here { Image(systemName: "location.fill").font(.system(size: compact ? 7 : 9, weight: .heavy)).opacity(0.85) }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, compact ? 6 : 8)
@@ -206,7 +209,9 @@ struct XPBar: View {
 
 struct PetCard: View {
     let entry: WildIndexEntry
+    @Environment(LocalRarityStore.self) private var localRarity
     var body: some View {
+        let tier = localRarity.displayTier(for: entry)
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 entry.group.habitat
@@ -231,7 +236,7 @@ struct PetCard: View {
                     Spacer(minLength: 2)
                 }
                 HStack {
-                    TierBadge(tier: entry.tier, compact: true)
+                    TierBadge(tier: tier, compact: true, here: localRarity.tier(for: entry) != nil)
                     Spacer()
                     Text("\(entry.xp) XP").font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.secondaryText)
                 }
@@ -241,7 +246,47 @@ struct PetCard: View {
             .background(Theme.card)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(entry.tier.color.opacity(0.6), lineWidth: entry.tier >= .rare ? 2 : 1))
-        .shadow(color: entry.tier.color.opacity(entry.tier >= .epic ? 0.35 : 0.1), radius: 8, y: 4)
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(tier.color.opacity(0.6), lineWidth: tier >= .rare ? 2 : 1))
+        .shadow(color: tier.color.opacity(tier >= .epic ? 0.35 : 0.1), radius: 8, y: 4)
+    }
+}
+
+/// Two rarities side by side: live near you now, and the best tier a catch was locked at.
+struct RarityPanel: View {
+    let entry: WildIndexEntry
+    @Environment(LocalRarityStore.self) private var localRarity
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            column(title: "NEAR YOU NOW", symbol: "location.fill") {
+                if let here = localRarity.tier(for: entry) {
+                    TierBadge(tier: here, here: true)
+                    Text(localRarity.placeName ?? "Your location").font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                } else {
+                    Text(localRarity.isLoading ? "Checking…" : "Needs location & internet").font(.caption).foregroundStyle(Theme.secondaryText)
+                }
+            }
+            Divider().frame(height: 54)
+            column(title: "BEST CATCH", symbol: "lock.fill") {
+                if let best = entry.bestCatch, let tier = best.lockedTier {
+                    TierBadge(tier: tier)
+                    Text([best.placeName, best.date.wildShort].compactMap { $0 }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                } else {
+                    Text("Being checked…").font(.caption).foregroundStyle(Theme.secondaryText)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func column<C: View>(title: String, symbol: String, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: symbol).font(.system(size: 10, weight: .heavy, design: .rounded)).foregroundStyle(Theme.secondaryText)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

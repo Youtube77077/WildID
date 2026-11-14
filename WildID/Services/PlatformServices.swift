@@ -63,6 +63,20 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     /// The place WildID should use for suggestions right now.
     var activePlace: WildPlace? { manualPlace ?? currentPlace }
 
+    /// A GPS fix that rarity and XP may trust: recent (≤ 10 minutes; while WildID is open, iOS sends a
+    /// new fix whenever you move more than the distance filter, so an older fix means you haven't
+    /// moved), accurate (≤ 1 km) and not
+    /// reported by iOS as simulated by software or produced by an external accessory. A place
+    /// chosen by hand (`manualPlace`) never counts.
+    var verifiedFix: CLLocation? { current.flatMap(Self.trusted) }
+
+    nonisolated static func trusted(_ fix: CLLocation, now: Date = Date()) -> CLLocation? {
+        guard now.timeIntervalSince(fix.timestamp) <= 600,
+              fix.horizontalAccuracy >= 0, fix.horizontalAccuracy <= 1000 else { return nil }
+        if let source = fix.sourceInformation, source.isSimulatedBySoftware || source.isProducedByAccessory { return nil }
+        return fix
+    }
+
     override init() {
         authorization = manager.authorizationStatus
         super.init()
@@ -86,7 +100,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     /// Higher accuracy while recording so catches are placed precisely on the map.
     func setPrecise(_ precise: Bool) {
         manager.desiredAccuracy = precise ? kCLLocationAccuracyBest : kCLLocationAccuracyHundredMeters
-        manager.distanceFilter = precise ? 20 : 200
+        manager.distanceFilter = precise ? kCLDistanceFilterNone : 200
     }
 
     private func persistManual() {

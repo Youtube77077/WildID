@@ -127,7 +127,7 @@ struct WildMapView: View {
                 guard let coord = o.coordinate, let t = o.taxon else { return nil }
                 return MapPin(id: "o-\(o.id)", coordinate: coord, title: t.commonName,
                               subtitle: [o.observedDate?.wildDay, o.place_guess].compactMap { $0 }.joined(separator: " · "),
-                              imageURL: o.photos?.first?.sized("small"), kind: .observation, group: t.group,
+                              imageURL: o.photos?.first?.sized("small"), iconURL: t.thumbURL, kind: .observation, group: t.group,
                               species: SpeciesRef(taxon: t), date: o.observedDate,
                               source: "iNaturalist · \(o.user?.name ?? o.user?.login ?? "observer")")
             }

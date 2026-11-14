@@ -27,16 +27,20 @@ Captured automatically on the iOS Simulator by the *Simulator screenshots* workf
 | **Wild Index**<br><img src="docs/screenshots/10-wild-index.png" width="240"> | **Wild Index entry**<br><img src="docs/screenshots/11-wild-index-entry.png" width="240"> | **Achievements**<br><img src="docs/screenshots/12-achievements.png" width="240"> |
 | **Wildlings**<br><img src="docs/screenshots/13-wildlings.png" width="240"> | **Wildling detail**<br><img src="docs/screenshots/14-wildling-detail.png" width="240"> | **How Wildlings work**<br><img src="docs/screenshots/15-wildlings-guide.png" width="240"> |
 | **Explore**<br><img src="docs/screenshots/16-explore.png" width="240"> | **Species page**<br><img src="docs/screenshots/17-species.png" width="240"> | **Settings**<br><img src="docs/screenshots/18-settings.png" width="240"> |
+| **New animal pop-up**<br><img src="docs/screenshots/19-new-animal.png" width="240"> | **Pop-up during Sound ID**<br><img src="docs/screenshots/20-new-animal-during-sound-id.png" width="240"> | **Level up**<br><img src="docs/screenshots/21-level-up.png" width="240"> |
+| **Holiday catch: rarity near you vs. locked**<br><img src="docs/screenshots/22-wildling-kangaroo.png" width="240"> | | |
 
 ### Wildlings rules (fair play)
 
-| Tier | Local records within 50 km | First catch | Each repeat catch |
+| Tier | Records within 50 km of the catch | First catch | Each repeat catch |
 |---|---|---|---|
 | Common | ≥ 500 | +100 XP | +20 XP |
 | Uncommon | 100–499 | +150 XP | +30 XP |
 | Rare | 20–99 (or IUCN Vulnerable) | +250 XP | +45 XP |
 | Epic | 5–19 (or Endangered) | +400 XP | +70 XP |
 | Legendary | < 5 (or Critically Endangered) | +700 XP | +100 XP |
+
+**Rarity depends on where you are.** Each catch is locked to the tier of the exact spot where you caught it, and that decides its XP. The badge on your Wildlings shows the tier *near where you are now*. A kangaroo caught in Australia is locked as Common there, shows **Legendary** back in the Netherlands, and Common again when you return. That badge is only a label and never changes XP. To make this hard to cheat, rarity XP needs a live GPS fix (≤ 10 min old, ≤ 1 km accurate, not flagged by iOS as simulated or from an accessory). Library photos, hand-picked places and backdated sightings score as Common. Animals with no wild records within 300 km (zoos, pets, escapes) also score as Common. A catch's tier is locked once and can't be re-rolled. On a jailbroken phone anything can be faked; WildID has no server and no leaderboards, so cheating only affects your own collection.
 
 Repeat catches earn XP at most once per hour per animal and 3 times a day; Step by Step earns half and manual sightings a quarter (they can't be verified); XP time is recorded when it is granted, so backdating a sighting doesn't help; Sound ID adds each species once per session. Levels: 2 at 75 XP, 5 at 750, 10 at 3,375 … up to 50. Your **Explorer level** sums all your Wildlings.
 

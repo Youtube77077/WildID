@@ -6,6 +6,7 @@ struct WildlingsView: View {
     static let guideSeenKey = "wildlingsGuideSeen"
     @Query(sort: \WildIndexEntry.lastCaughtAt, order: .reverse) private var entries: [WildIndexEntry]
     @Environment(Router.self) private var router
+    @Environment(LocalRarityStore.self) private var localRarity
     @AppStorage(WildlingsView.guideSeenKey) private var guideSeen = false
 
     enum Sort: String, CaseIterable, Identifiable {
@@ -19,11 +20,11 @@ struct WildlingsView: View {
     private var totalXP: Int { entries.reduce(0) { $0 + $1.xp } }
 
     private var visible: [WildIndexEntry] {
-        var list = entries.filter { tierFilter == nil || $0.tier == tierFilter }
+        var list = entries.filter { tierFilter == nil || localRarity.displayTier(for: $0) == tierFilter }
         switch sort {
         case .level: list.sort { ($0.xp, $0.lastCaughtAt) > ($1.xp, $1.lastCaughtAt) }
         case .recent: list.sort { $0.lastCaughtAt > $1.lastCaughtAt }
-        case .tier: list.sort { ($0.tier.rank, $0.xp) > ($1.tier.rank, $1.xp) }
+        case .tier: list.sort { (localRarity.displayTier(for: $0).rank, $0.xp) > (localRarity.displayTier(for: $1).rank, $1.xp) }
         case .name: list.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         }
         return list
@@ -136,7 +137,7 @@ struct WildlingsView: View {
                         .background(tierFilter == nil ? AnyShapeStyle(Theme.moss) : AnyShapeStyle(Theme.card), in: Capsule())
                 }
                 ForEach(Rarity.allCases, id: \.self) { t in
-                    let n = entries.filter { $0.tier == t }.count
+                    let n = entries.filter { localRarity.displayTier(for: $0) == t }.count
                     Button { tierFilter = (tierFilter == t ? nil : t) } label: {
                         HStack(spacing: 5) {
                             Image(systemName: t.symbol).font(.system(size: 10, weight: .heavy))
@@ -162,6 +163,7 @@ struct PetDetailView: View {
     let entryKey: String
     @Query private var results: [WildIndexEntry]
     @Environment(CollectionManager.self) private var collection
+    @Environment(LocalRarityStore.self) private var localRarity
     @State private var renaming = false
     @State private var newName = ""
     @State private var facts: SpeciesFacts?
@@ -242,10 +244,10 @@ struct PetDetailView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: e.group.symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
                                     .frame(width: 34, height: 34).background(e.group.tint, in: Circle())
-                                Image(systemName: e.tier.symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                                    .frame(width: 34, height: 34).background(e.tier.gradient, in: Circle())
+                                Image(systemName: localRarity.displayTier(for: e).symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
+                                    .frame(width: 34, height: 34).background(localRarity.displayTier(for: e).gradient, in: Circle())
                             }
-                            Text("\(e.group.singular.uppercased()) / \(e.tier.title.uppercased())").font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(Theme.secondaryText)
+                            Text("\(e.group.singular.uppercased()) / \(localRarity.displayTier(for: e).title.uppercased())").font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(Theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity)
                         Divider().frame(height: 44)
@@ -262,6 +264,8 @@ struct PetDetailView: View {
                         statColumn(value: e.firstCaughtAt.wildShort, label: "MET ON")
                     }
 
+                    RarityPanel(entry: e)
+
                     VStack(alignment: .leading, spacing: 10) {
                         Text("XP history").font(.system(size: 18, weight: .heavy, design: .rounded))
                         ForEach(e.sortedCatches.prefix(12)) { c in
@@ -273,6 +277,14 @@ struct PetDetailView: View {
                                         .font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
                                 }
                                 Spacer()
+                                if let t = c.lockedTier {
+                                    TierBadge(tier: t, compact: true)
+                                    if let lock = c.tierLock, lock != .verified {
+                                        Image(systemName: lock == .outOfRange ? "building.columns" : "location.slash")
+                                            .font(.caption2).foregroundStyle(Theme.tertiaryText)
+                                            .accessibilityLabel(lock.explanation)
+                                    }
+                                }
                                 Text(c.xpAwarded > 0 ? "+\(c.xpAwarded) XP" : "cooldown")
                                     .font(.system(size: 13, weight: .heavy, design: .rounded))
                                     .foregroundStyle(c.xpAwarded > 0 ? Theme.moss : Theme.tertiaryText)
@@ -363,7 +375,7 @@ struct WildlingsGuideView: View {
                     step(3, "Catch it again to level up", "Hearing or seeing the same species again later gives repeat XP. Levels go up to \(XPRules.maxLevel).", "arrow.up.circle.fill")
                     step(4, "Make it yours", "Tap its name to give it a nickname. Its real species name always stays in the Wild Index.", "pencil")
                 }
-                Section("Rarity, from where you are") {
+                Section("Rarity depends on where you are") {
                     ForEach(Rarity.allCases, id: \.self) { t in
                         HStack {
                             TierBadge(tier: t)
@@ -377,6 +389,9 @@ struct WildlingsGuideView: View {
                     Label("Repeat catches of the same animal earn XP at most once an hour, and 3 times a day.", systemImage: "clock")
                     Label("Sound ID and Photo ID earn full XP. Step by Step earns half and manual sightings a quarter, because they're easier to fake.", systemImage: "checkmark.seal")
                     Label("Each animal counts only once per Sound ID session, so leaving the microphone on doesn't farm XP.", systemImage: "waveform")
+                    Label("Rarity XP needs a live GPS fix where you are. Photos from your library, places picked by hand, backdated sightings and locations iOS reports as simulated all score as Common.", systemImage: "location.slash")
+                    Label("Animals with no wild records within 300 km (zoos, pets, escapes) score as Common.", systemImage: "building.columns")
+                    Label("A catch's tier is locked the moment you catch it. Travelling changes the badge you see, never the XP you earned.", systemImage: "lock.fill")
                 }
                 Section("Levels") {
                     Text("Level 2 at 75 XP, level 5 at 750 XP, level 10 at 3,375 XP, up to level \(XPRules.maxLevel). Your Explorer level adds up the XP of all your Wildlings.")

@@ -79,6 +79,7 @@ final class AppEnvironment {
     let router = Router()
     let nearby = NearbyStore()
     let daily = DailyAnimalStore()
+    let localRarity = LocalRarityStore()
     let sound = SoundIDSession()
     let collection: CollectionManager
 
