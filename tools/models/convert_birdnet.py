@@ -184,6 +184,56 @@ def wrap_frozen_graph(gd, in_name, out_name):
     return wrapped.prune(g.as_graph_element(in_name + ":0"), g.as_graph_element(out_name + ":0"))
 
 
+def cut_graph_at(gd, tensor_node, placeholder_name, shape, output_name):
+    """Replaces `tensor_node` with a new float32 placeholder and drops nodes it no longer needs."""
+    import tensorflow as tf
+    from tensorflow.core.framework import graph_pb2, node_def_pb2, attr_value_pb2, tensor_shape_pb2
+
+    ph = node_def_pb2.NodeDef(name=placeholder_name, op="Placeholder")
+    ph.attr["dtype"].CopyFrom(attr_value_pb2.AttrValue(type=tf.float32.as_datatype_enum))
+    shp = tensor_shape_pb2.TensorShapeProto(dim=[tensor_shape_pb2.TensorShapeProto.Dim(size=d) for d in shape])
+    ph.attr["shape"].CopyFrom(attr_value_pb2.AttrValue(shape=shp))
+    out = graph_pb2.GraphDef()
+    out.versions.CopyFrom(gd.versions)
+    out.node.append(ph)
+    for n in gd.node:
+        if n.name == tensor_node:
+            continue
+        nn = node_def_pb2.NodeDef()
+        nn.CopyFrom(n)
+        del nn.input[:]
+        for i in n.input:
+            base = i.lstrip("^").split(":")[0]
+            nn.input.append(placeholder_name if base == tensor_node else i)
+        out.node.append(nn)
+    return tf.compat.v1.graph_util.extract_sub_graph(out, [output_name])
+
+
+def dump_meta_encoding(gd, out_dir):
+    """Writes the meta-model's input-encoding subgraph (ops + small constants) for documentation
+    and so the Swift implementation can be checked against it."""
+    import tensorflow as tf
+    rows = []
+    for n in gd.node:
+        if "MNET_CONVERT" not in n.name and n.op != "Placeholder":
+            continue
+        row = {"name": n.name, "op": n.op, "inputs": list(n.input)}
+        if n.op == "Const":
+            v = tf.make_ndarray(n.attr["value"].tensor)
+            row["shape"] = list(v.shape)
+            if v.size <= 64:
+                row["value"] = np.asarray(v).astype(float).reshape(-1).tolist()
+        for k in ("begin_mask", "end_mask", "shrink_axis_mask", "new_axis_mask", "ellipsis_mask", "axis"):
+            if k in n.attr:
+                row[k] = n.attr[k].i
+        rows.append(row)
+    path = os.path.join("tools", "models", "reports", "meta_encoding_graph.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    json.dump(rows, open(path, "w"), indent=1)
+    for r in rows:
+        log("  META", r["op"], r["name"].split("/")[-1], r.get("inputs"), r.get("value", r.get("shape", "")))
+
+
 def run_graph(gd, in_name, out_name, x):
     import tensorflow as tf
 
@@ -305,28 +355,51 @@ def main():
     log("saved", audio_path)
 
     # ---------- meta model ----------
-    mgd, m_in, m_out, _ = freeze(os.path.join(pb_dir, "meta-model"), "serving_default")
-    meta_cf = wrap_frozen_graph(mgd, m_in, m_out)
-    meta = ct.convert(
-        [meta_cf],
-        source="tensorflow",
-        inputs=[ct.TensorType(name=m_in, shape=(1, 3), dtype=np.float32)],
-        outputs=[ct.TensorType(name=m_out)],
-        convert_to="mlprogram",
-        minimum_deployment_target=ct.target.iOS16,
-    )
+    mgd, m_in, m_out, mfn = freeze(os.path.join(pb_dir, "meta-model"), "serving_default")
+    log("meta-model input", m_in, "output", m_out)
+    dump_meta_encoding(mgd, args.out)
+    meta_path = os.path.join(args.out, "BirdNETMeta.mlpackage")
+    meta_mode = None
     from coremltools.optimize.coreml import OpLinearQuantizerConfig, OptimizationConfig, linear_quantize_weights
-    meta = linear_quantize_weights(meta, OptimizationConfig(global_config=OpLinearQuantizerConfig(mode="linear_symmetric", weight_threshold=2048)))
+    qcfg = OptimizationConfig(global_config=OpLinearQuantizerConfig(mode="linear_symmetric", weight_threshold=2048))
+    try:
+        meta = ct.convert(
+            [wrap_frozen_graph(mgd, m_in, m_out)],
+            source="tensorflow",
+            inputs=[ct.TensorType(name=m_in, shape=(ct.RangeDim(1, 8, default=1), 3), dtype=np.float32)],
+            outputs=[ct.TensorType(name=m_out)],
+            convert_to="mlprogram",
+            minimum_deployment_target=ct.target.iOS16,
+        )
+        meta_mode = "full"
+        in_feature = "location"
+    except Exception as e:
+        log("full meta conversion failed:", repr(e)[:300])
+        # Fallback: convert only the dense layers; the app computes the 144-d encoding itself.
+        concat = next(n.name for n in mgd.node if n.name.endswith("MNET_CONVERT/concat"))
+        dense_gd = cut_graph_at(mgd, concat, "features", (1, 144), m_out)
+        meta = ct.convert(
+            [wrap_frozen_graph(dense_gd, "features", m_out)],
+            source="tensorflow",
+            inputs=[ct.TensorType(name="features", shape=(1, 144), dtype=np.float32)],
+            outputs=[ct.TensorType(name=m_out)],
+            convert_to="mlprogram",
+            minimum_deployment_target=ct.target.iOS16,
+        )
+        meta_mode = "dense"
+        in_feature = "features"
+    meta = linear_quantize_weights(meta, qcfg)
     mspec = meta.get_spec()
-    ct.utils.rename_feature(mspec, mspec.description.input[0].name, "location")
+    ct.utils.rename_feature(mspec, mspec.description.input[0].name, in_feature)
     ct.utils.rename_feature(mspec, mspec.description.output[0].name, "occurrence")
     meta = ct.models.MLModel(mspec, weights_dir=meta.weights_dir)
-    meta.short_description = "BirdNET V2.4 species occurrence model: input [latitude, longitude, week(1-48 or -1)]. CC BY-NC-SA 4.0."
+    meta.short_description = ("BirdNET V2.4 species occurrence model. " +
+        ("Input [latitude, longitude, week(1-48 or -1)]." if meta_mode == "full" else "Input: 144-d location/week encoding (see MetaEncoding.swift).") +
+        " CC BY-NC-SA 4.0.")
     meta.license = "CC BY-NC-SA 4.0"
-    meta_path = os.path.join(args.out, "BirdNETMeta.mlpackage")
     shutil.rmtree(meta_path, ignore_errors=True)
     meta.save(meta_path)
-    log("saved", meta_path)
+    log("saved", meta_path, "mode", meta_mode)
 
     # ---------- Core ML validation (macOS only) ----------
     report = {"labels": len(labels)}
@@ -345,7 +418,15 @@ def main():
         mt = tf.saved_model.load(os.path.join(pb_dir, "meta-model")).signatures["serving_default"]
         q = np.array([[52.46, 5.03, 46]], dtype=np.float32)  # Monnickendam, mid-November
         tref = list(mt(tf.constant(q)).values())[0].numpy()
-        ycm = mm.predict({"location": q})["occurrence"]
+        concat = next(n.name for n in mgd.node if n.name.endswith("MNET_CONVERT/concat"))
+        enc_queries = [[52.46, 5.03, 46], [-33.9, 151.2, 3], [40.7, -74.0, -1], [0.0, 0.0, 24], [64.1, -21.9, 1]]
+        encodings = [run_graph(mgd, m_in, concat, np.array([qq], dtype=np.float32))[0].tolist() for qq in enc_queries]
+        json.dump({"queries": enc_queries, "encodings": encodings}, open(os.path.join("tools", "models", "reports", "meta_encoding_reference.json"), "w"))
+        if args.testdata:
+            json.dump({"queries": enc_queries, "encodings": encodings}, open(os.path.join(args.testdata, "meta_encoding_reference.json"), "w"))
+        feed = {"location": q} if meta_mode == "full" else {"features": np.array([encodings[0]], dtype=np.float32)}
+        ycm = mm.predict(feed)["occurrence"]
+        report["meta_mode"] = meta_mode
         report["meta_maxdiff"] = float(np.max(np.abs(ycm - tref)))
         report["meta_species_above_0.03_nl_nov"] = int((tref[0] > 0.03).sum())
         log("meta", report["meta_maxdiff"], report["meta_species_above_0.03_nl_nov"])
