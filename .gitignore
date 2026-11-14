@@ -1,0 +1,32 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+Config/Local.xcconfig
+
+# Secrets — never commit real keys
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+
+# Python / data tooling
+__pycache__/
+*.pyc
+.venv/
+venv/
+tools/**/work/
+datasets/raw/
+datasets/audio/
+datasets/cache/
+*.tflite
+bn/
+
+# macOS
+.DS_Store

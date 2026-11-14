@@ -1,0 +1,61 @@
+name: iOS build & tests
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'WildID/**'
+      - 'WildIDTests/**'
+      - 'WildID.xcodeproj/**'
+      - 'Config/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Toolchain
+        run: xcodebuild -version
+      - name: Build for device (unsigned) — proves it compiles for a real iPhone
+        run: |
+          set -o pipefail
+          xcodebuild -project WildID.xcodeproj -scheme WildID -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build-device.log | grep -E "error:|warning: .*(deprecated|unused)|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build-device.log
+      - name: Unit tests (iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild -project WildID.xcodeproj -scheme WildID \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee test.log | grep -E "error:|Test Case .*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" || true
+          grep -q "TEST SUCCEEDED" test.log
+      - name: Package unsigned .ipa (for sideloading tools that re-sign)
+        if: success()
+        run: |
+          APP=$(find build/device -name "WildID.app" -type d | head -1)
+          mkdir -p Payload && cp -R "$APP" Payload/ && zip -qry WildID-unsigned.ipa Payload
+          du -h WildID-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: WildID-unsigned-ipa
+          path: WildID-unsigned.ipa
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs
+          path: '*.log'

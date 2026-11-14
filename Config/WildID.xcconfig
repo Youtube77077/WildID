@@ -1,0 +1,14 @@
+// WildID build configuration.
+//
+// To install on your own iPhone, change the bundle identifier below to something
+// unique to you (Apple requires bundle IDs to be globally unique), then choose your
+// team in Xcode > WildID target > Signing & Capabilities.
+//
+// You can also create Config/Local.xcconfig (git-ignored) to override these values
+// without touching tracked files:
+//   WILDID_BUNDLE_IDENTIFIER = com.yourname.wildid
+//   DEVELOPMENT_TEAM = ABCDE12345
+
+WILDID_BUNDLE_IDENTIFIER = io.github.youtube77077.wildid
+
+#include? "Local.xcconfig"

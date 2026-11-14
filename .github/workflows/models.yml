@@ -1,0 +1,44 @@
+name: Convert models (BirdNET -> Core ML)
+on:
+  push:
+    branches: ['**']
+    paths: ['tools/models/**', '.github/workflows/models.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: models-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  convert:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install converters
+        run: pip install -q -r tools/models/requirements.txt
+      - name: Fetch real validation recording (iNaturalist, CC0/CC BY)
+        run: |
+          python3 tools/models/fetch_test_audio.py work "Turdus merula"
+          SRC=$(python3 -c "import json;print(json.load(open('work/test_source.json'))['path'])")
+          afconvert -f WAVE -d LEI16@48000 -c 1 "$SRC" work/test.wav
+          afinfo work/test.wav | head -5
+      - name: Convert + validate
+        run: python3 tools/models/convert_birdnet.py --out WildID/Resources/Models --work work --testdata WildIDTests/Resources
+      - name: Record provenance
+        run: |
+          cp work/test_source.json WildIDTests/Resources/birdnet_input_source.json
+          du -sh WildID/Resources/Models/*
+      - name: Commit converted models to this branch
+        run: |
+          git config user.name "wildid-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add WildID/Resources/Models WildIDTests/Resources
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Add converted BirdNET Core ML models (CC BY-NC-SA 4.0) [automated]"
+          for i in 1 2 3 4; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep $((i*10)); done
