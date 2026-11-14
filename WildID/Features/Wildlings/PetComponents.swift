@@ -42,6 +42,7 @@ struct TierBadge: View {
         HStack(spacing: 4) {
             Image(systemName: tier.symbol).font(.system(size: compact ? 8 : 10, weight: .heavy))
             Text(tier.title.uppercased()).font(.system(size: compact ? 9 : 11, weight: .heavy, design: .rounded)).tracking(0.6)
+                .lineLimit(1).fixedSize()
             if here { Image(systemName: "location.fill").font(.system(size: compact ? 7 : 9, weight: .heavy)).opacity(0.85) }
         }
         .foregroundStyle(.white)
@@ -239,6 +240,7 @@ struct PetCard: View {
                     TierBadge(tier: tier, compact: true, here: localRarity.tier(for: entry) != nil)
                     Spacer()
                     Text("\(entry.xp) XP").font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.secondaryText)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 XPBar(xp: entry.xp, height: 6)
             }

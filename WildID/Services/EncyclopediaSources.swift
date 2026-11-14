@@ -169,13 +169,16 @@ struct WikidataAPI {
     func facts(scientificName: String) async throws -> SpeciesFacts {
         let escaped = scientificName.replacingOccurrences(of: "\"", with: "")
         let sparql = """
-        SELECT ?item ?p ?amount ?unit WHERE {
+        SELECT ?item ?p ?st ?amount ?unit ?qp WHERE {
           ?item wdt:P225 "\(escaped)" .
           VALUES ?p { "P2043" "P2048" "P2050" "P2067" "P2250" "P4214" }
           BIND(IRI(CONCAT("http://www.wikidata.org/prop/", ?p)) AS ?pp)
           BIND(IRI(CONCAT("http://www.wikidata.org/prop/statement/value/", ?p)) AS ?psv)
-          OPTIONAL { ?item ?pp ?st . ?st ?psv ?v . ?v wikibase:quantityAmount ?amount ; wikibase:quantityUnit ?unit . }
-        } LIMIT 60
+          OPTIONAL {
+            ?item ?pp ?st . ?st ?psv ?v . ?v wikibase:quantityAmount ?amount ; wikibase:quantityUnit ?unit .
+            OPTIONAL { ?st ?qp ?qv . FILTER(STRSTARTS(STR(?qp), "http://www.wikidata.org/prop/qualifier/P") && ?qp NOT IN (pq:P21, pq:P459, pq:P1480, pq:P805)) }
+          }
+        } LIMIT 120
         """
         let url = URL.build("https://query.wikidata.org/sparql", ["query": sparql, "format": "json"])
         struct Response: Decodable {
@@ -185,12 +188,22 @@ struct WikidataAPI {
         }
         let response = try await http.get(Response.self, from: url, maxAge: 60 * 60 * 24 * 30)
         var item: String? = nil
-        var values: [String: [(Double, String)]] = [:]
+        // Statements qualified with e.g. "at birth" or "applies to part: egg" describe something other
+        // than a typical adult; they are only used when nothing else is known.
+        var statements: [String: (p: String, amount: Double, unit: String, qualified: Bool)] = [:]
         for row in response.results.bindings {
             if let i = row["item"]?.value { item = i.components(separatedBy: "/").last }
             guard let p = row["p"]?.value, let a = row["amount"]?.value, let amount = Double(a),
                   let unitIRI = row["unit"]?.value, let unitQ = unitIRI.components(separatedBy: "/").last else { continue }
-            values[p, default: []].append((amount, unitQ))
+            let id = row["st"]?.value ?? "\(p)-\(a)-\(unitQ)"
+            let qualified = row["qp"] != nil || (statements[id]?.qualified ?? false)
+            statements[id] = (p, amount, unitQ, qualified)
+        }
+        var values: [String: [(Double, String)]] = [:]
+        for prop in Set(statements.values.map { $0.p }) {
+            let all = statements.values.filter { $0.p == prop }
+            let plain = all.filter { !$0.qualified }
+            values[prop] = (plain.isEmpty ? all : plain).map { ($0.amount, $0.unit) }
         }
         var measures: [SpeciesFacts.Measure] = []
         for prop in Self.properties {
