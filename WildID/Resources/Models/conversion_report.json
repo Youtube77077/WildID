@@ -1,0 +1,10 @@
+{
+ "labels": 6522,
+ "audio_synthetic_maxdiff": 0.08286666870117188,
+ "audio_synthetic_top1_match": true,
+ "audio_real_maxdiff": 0.0734548568725586,
+ "audio_real_top1_match": true,
+ "meta_mode": "dense",
+ "meta_maxdiff": 0.031360745429992676,
+ "meta_species_above_0.03_nl_nov": 138
+}

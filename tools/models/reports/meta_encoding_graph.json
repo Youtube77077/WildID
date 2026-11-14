@@ -1,0 +1,933 @@
+[
+ {
+  "name": "mnet_input",
+  "op": "Placeholder",
+  "inputs": []
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_1/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   6.2831854820251465
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack_1",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack_2",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   90.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   180.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims/dim",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/start",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/limit",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/delta",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   3.1415927410125732
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_1/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_1/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_4/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   6.2831854820251465
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack_1",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack_2",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_2/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   180.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_2/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   360.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_1/dim",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/start",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/limit",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/delta",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_3/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   3.1415927410125732
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_3/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_2/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_7/x",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   6.2831854820251465
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack_1",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   3.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack_2",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/sub/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_4/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_2/dim",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/start",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/limit",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/delta",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_6/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   3.1415927410125732
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_5/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   48.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack_1",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   3.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack_2",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Greater/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2/t",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2/e",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   2.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack_1",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   0.0,
+   3.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack_2",
+  "op": "Const",
+  "inputs": [],
+  "shape": [
+   2
+  ],
+  "value": [
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Less/y",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   49.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1/t",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1/e",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   0.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_3/dim",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/concat/axis",
+  "op": "Const",
+  "inputs": [],
+  "shape": [],
+  "value": [
+   1.0
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt",
+  "op": "Sqrt",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt/x"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice",
+  "op": "StridedSlice",
+  "inputs": [
+   "Func/StatefulPartitionedCall/input/_0",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice/stack_2"
+  ],
+  "begin_mask": 1,
+  "end_mask": 1,
+  "shrink_axis_mask": 2,
+  "new_axis_mask": 0,
+  "ellipsis_mask": 0
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add",
+  "op": "AddV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims",
+  "op": "ExpandDims",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims/dim"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_1",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_1/x",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range",
+  "op": "Range",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/start",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/limit",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range/delta"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_1",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_1/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_1",
+  "op": "AddV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_1"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin",
+  "op": "Sin",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_1"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_2",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_1",
+  "op": "Sqrt",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_1/x"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1",
+  "op": "StridedSlice",
+  "inputs": [
+   "Func/StatefulPartitionedCall/input/_0",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1/stack_2"
+  ],
+  "begin_mask": 1,
+  "end_mask": 1,
+  "shrink_axis_mask": 2,
+  "new_axis_mask": 0,
+  "ellipsis_mask": 0
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_2",
+  "op": "AddV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_2/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_2",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_2/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_1",
+  "op": "ExpandDims",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_1/dim"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_4",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_4/x",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_1"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1",
+  "op": "Range",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/start",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/limit",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1/delta"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_3",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_3/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_3",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_3",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_3/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_3",
+  "op": "AddV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_4",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_3"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin_1",
+  "op": "Sin",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_3"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_5",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin_1"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_2",
+  "op": "Sqrt",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_2/x"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2",
+  "op": "StridedSlice",
+  "inputs": [
+   "Func/StatefulPartitionedCall/input/_0",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2/stack_2"
+  ],
+  "begin_mask": 1,
+  "end_mask": 1,
+  "shrink_axis_mask": 2,
+  "new_axis_mask": 0,
+  "ellipsis_mask": 0
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/sub",
+  "op": "Sub",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/sub/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_4",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/sub",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_4/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_2",
+  "op": "ExpandDims",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_4",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_2/dim"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_7",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_7/x",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_2"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2",
+  "op": "Range",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/start",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/limit",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2/delta"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_6",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/range_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_6/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_5",
+  "op": "RealDiv",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_6",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_5/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_4",
+  "op": "AddV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_7",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/truediv_5"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin_2",
+  "op": "Sin",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/add_4"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_8",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sqrt_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Sin_2"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3",
+  "op": "StridedSlice",
+  "inputs": [
+   "Func/StatefulPartitionedCall/input/_0",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3/stack_2"
+  ],
+  "begin_mask": 1,
+  "end_mask": 1,
+  "shrink_axis_mask": 2,
+  "new_axis_mask": 0,
+  "ellipsis_mask": 0
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Greater",
+  "op": "Greater",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_3",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Greater/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2",
+  "op": "SelectV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Greater",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2/t",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2/e"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4",
+  "op": "StridedSlice",
+  "inputs": [
+   "Func/StatefulPartitionedCall/input/_0",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack_1",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4/stack_2"
+  ],
+  "begin_mask": 1,
+  "end_mask": 1,
+  "shrink_axis_mask": 2,
+  "new_axis_mask": 0,
+  "ellipsis_mask": 0
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Less",
+  "op": "Less",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/strided_slice_4",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Less/y"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1",
+  "op": "SelectV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Less",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1/t",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1/e"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_9",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/SelectV2_1"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_3",
+  "op": "ExpandDims",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_9",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_3/dim"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Mul_10",
+  "op": "Mul",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_8",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/ExpandDims_3"
+  ]
+ },
+ {
+  "name": "StatefulPartitionedCall/BirdNET/MNET_CONVERT/concat",
+  "op": "ConcatV2",
+  "inputs": [
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_2",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/mul_5",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/Mul_10",
+   "StatefulPartitionedCall/BirdNET/MNET_CONVERT/concat/axis"
+  ]
+ }
+]

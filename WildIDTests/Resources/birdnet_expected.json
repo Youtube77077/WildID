@@ -1,0 +1,36 @@
+{
+ "source": "real",
+ "top5": [
+  6253,
+  4245,
+  6285,
+  3084,
+  3074
+ ],
+ "top5_labels": [
+  "Turdus merula_Eurasian Blackbird",
+  "Passer domesticus_House Sparrow",
+  "Turdus viscivorus_Mistle Thrush",
+  "Lanius sphenocercus_Chinese Gray Shrike",
+  "Lanius excubitor_Great Gray Shrike"
+ ],
+ "top5_scores": [
+  1.0043026208877563,
+  -4.004699230194092,
+  -4.265932083129883,
+  -4.569586277008057,
+  -4.711292266845703
+ ],
+ "meta_query": [
+  52.459999084472656,
+  5.03000020980835,
+  46.0
+ ],
+ "meta_top5": [
+  1579,
+  6253,
+  1745,
+  4237,
+  2176
+ ]
+}
