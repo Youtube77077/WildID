@@ -199,15 +199,22 @@ final class CollectionManager {
                 toasts.show(NewAnimalEvent(species: species, totalSpecies: speciesCount()))
             }
             if settings.haptics { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-            Task { await enrich(entry, at: coord) }
+            if let taxonID = entry.taxonID {
+                let key = entry.key
+                Task { await enrich(key: key, taxonID: taxonID, at: coord) }
+            }
         }
         return (entry, isNew)
     }
 
     /// Adds family/order/class, conservation status and local rarity to a new entry.
-    func enrich(_ entry: WildIndexEntry, at coordinate: CLLocationCoordinate2D?) async {
-        guard let taxonID = entry.taxonID else { return }
-        if let taxon = try? await api.taxon(id: taxonID) {
+    /// Works by key (not by object) so it is safe if the entry was deleted meanwhile.
+    func enrich(key: String, taxonID: Int, at coordinate: CLLocationCoordinate2D?) async {
+        let taxon = try? await api.taxon(id: taxonID)
+        var localCount: Int? = nil
+        if let coordinate { localCount = try? await api.observationCount(taxonID: taxonID, near: coordinate) }
+        guard let entry = entry(for: key) else { return }
+        if let taxon {
             entry.familyName = taxon.ancestor(rank: "family")?.name
             entry.orderName = taxon.ancestor(rank: "order")?.name
             entry.className = taxon.ancestor(rank: "class")?.name
@@ -215,9 +222,9 @@ final class CollectionManager {
             if entry.photoURLString == nil { entry.photoURLString = taxon.photoURL?.absoluteString }
             entry.groupRaw = taxon.group.rawValue
         }
-        if let coordinate, let n = try? await api.observationCount(taxonID: taxonID, near: coordinate) {
-            entry.localObservationCount = n
-            entry.rarityRaw = Rarity.from(localObservations: n).rawValue
+        if let localCount {
+            entry.localObservationCount = localCount
+            entry.rarityRaw = Rarity.from(localObservations: localCount).rawValue
         }
         try? context.save()
         revision += 1
