@@ -80,21 +80,57 @@ final class BirdNETClassifier: @unchecked Sendable {
         return (month - 1) * 4 + min(4, Int(ceil(Double(day) / 7.0)))
     }
 
+    /// The 144-value input encoding of BirdNET's meta-model, re-implemented from its graph
+    /// (see tools/models/reports/meta_encoding_graph.json; verified against TensorFlow in tests):
+    /// for v in [(lat+90)/180, (lon+180)/360, (week-1)/48]: √2·sin(2πv + kπ/48), k = 0..47.
+    /// The week block is zeroed for week ≤ 0 or ≥ 49 (BirdNET uses -1 for "all year").
+    static func metaEncoding(latitude: Double, longitude: Double, week: Int) -> [Float] {
+        let values = [(latitude + 90) / 180, (longitude + 180) / 360, Double(week - 1) / 48]
+        let weekMask: Double = (week > 0 && week < 49) ? 1 : 0
+        var out = [Float]()
+        out.reserveCapacity(144)
+        for (i, v) in values.enumerated() {
+            let mask = i == 2 ? weekMask : 1
+            for k in 0..<48 {
+                out.append(Float(mask * 2.0.squareRoot() * sin(2 * Double.pi * v + Double(k) * Double.pi / 48)))
+            }
+        }
+        return out
+    }
+
+    /// Runs the meta-model directly (exposed for tests).
+    func occurrenceScores(latitude: Double, longitude: Double, week: Int) throws -> [Float]? {
+        guard let metaModel else { return nil }
+        let inputs = metaModel.modelDescription.inputDescriptionsByName
+        let provider: MLDictionaryFeatureProvider
+        if inputs["features"] != nil {
+            let enc = Self.metaEncoding(latitude: latitude, longitude: longitude, week: week)
+            let arr = try MLMultiArray(shape: [1, 144], dataType: .float32)
+            let p = arr.dataPointer.bindMemory(to: Float.self, capacity: 144)
+            for i in 0..<144 { p[i] = enc[i] }
+            provider = try MLDictionaryFeatureProvider(dictionary: ["features": MLFeatureValue(multiArray: arr)])
+        } else {
+            let arr = try MLMultiArray(shape: [1, 3], dataType: .float32)
+            arr[0] = NSNumber(value: Float(latitude))
+            arr[1] = NSNumber(value: Float(longitude))
+            arr[2] = NSNumber(value: Float(week))
+            provider = try MLDictionaryFeatureProvider(dictionary: ["location": MLFeatureValue(multiArray: arr)])
+        }
+        let out = try metaModel.prediction(from: provider)
+        guard let scores = out.featureValue(for: "occurrence")?.multiArrayValue else { return nil }
+        return Self.floats(scores)
+    }
+
     /// Updates the location/season filter. Pass nil to disable filtering.
     func updateLocation(latitude: Double?, longitude: Double?, date: Date) {
         guard let latitude, let longitude, let metaModel else {
             lock.withLock { occurrence = nil }
             return
         }
+        _ = metaModel
         do {
-            let arr = try MLMultiArray(shape: [1, 3], dataType: .float32)
-            arr[0] = NSNumber(value: Float(latitude))
-            arr[1] = NSNumber(value: Float(longitude))
-            arr[2] = NSNumber(value: Float(Self.birdnetWeek(for: date)))
-            let out = try metaModel.prediction(from: MLDictionaryFeatureProvider(dictionary: ["location": MLFeatureValue(multiArray: arr)]))
-            guard let scores = out.featureValue(for: "occurrence")?.multiArrayValue else { return }
-            let values = Self.floats(scores)
-            lock.withLock { occurrence = values.count == labels.count ? values : nil }
+            let values = try occurrenceScores(latitude: latitude, longitude: longitude, week: Self.birdnetWeek(for: date))
+            lock.withLock { occurrence = values?.count == labels.count ? values : nil }
         } catch {
             lock.withLock { occurrence = nil }
         }

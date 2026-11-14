@@ -1,0 +1,61 @@
+name: Xeno-canto index (sound reference data)
+on:
+  push:
+    branches: ['**']
+    paths: ['tools/ingest/xeno_canto_ingest.py', '.github/workflows/xeno-canto.yml']
+  workflow_dispatch:
+    inputs:
+      per_species:
+        description: Recordings kept per species shard
+        default: '10'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xeno-canto-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      # Repository secret. The value is only read by the script and never printed.
+      XENO_CANTO_API_KEY: ${{ secrets.XENO_CANTO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secret
+        id: secret
+        run: |
+          if [ -z "$XENO_CANTO_API_KEY" ]; then
+            echo "::warning::Repository secret XENO_CANTO_API_KEY is not set — skipping. Add it under Settings › Secrets and variables › Actions."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@v5
+        if: steps.secret.outputs.present == 'true'
+        with: { python-version: '3.11' }
+      # Resumable: the checkpoint and partial metadata survive between runs.
+      - uses: actions/cache@v4
+        if: steps.secret.outputs.present == 'true'
+        with:
+          path: work/xc
+          key: xc-index-${{ github.run_id }}
+          restore-keys: xc-index-
+      - name: Index recordings (1 request/second, resumable)
+        if: steps.secret.outputs.present == 'true'
+        run: python3 tools/ingest/xeno_canto_ingest.py index --work work/xc --max-minutes 320
+      - name: Build per-species shards
+        if: steps.secret.outputs.present == 'true'
+        run: python3 tools/ingest/xeno_canto_ingest.py shards --work work/xc --out data/xeno-canto --per-species "${{ github.event.inputs.per_species || '10' }}"
+      - name: Commit shards to this branch
+        if: steps.secret.outputs.present == 'true'
+        run: |
+          git config user.name "wildid-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/xeno-canto
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -q -m "Update Xeno-canto species index [automated]"
+          for i in 1 2 3 4; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}" && break; sleep $((i*10)); done
