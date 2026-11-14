@@ -1,0 +1,12 @@
+{
+ "birds": {
+  "classes": 965,
+  "output_is_probability": true,
+  "top1_match": true
+ },
+ "insects": {
+  "classes": 1022,
+  "output_is_probability": true,
+  "top1_match": true
+ }
+}
