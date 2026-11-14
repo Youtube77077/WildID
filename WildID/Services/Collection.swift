@@ -128,7 +128,9 @@ final class ToastCenter {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { current = next }
         let id = next.id
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 4_200_000_000)
+            // Screenshot runs keep the pop-up up longer so the capture can't miss it.
+            let demo = ProcessInfo.processInfo.arguments.contains("-wildid-demo-toast")
+            try? await Task.sleep(nanoseconds: demo ? 15_000_000_000 : 4_200_000_000)
             if self.current?.id == id { self.dismissCurrent() }
         }
     }

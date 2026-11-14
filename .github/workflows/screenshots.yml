@@ -84,9 +84,9 @@ jobs:
           WAIT=22 shot 16-explore $D -wildid-tab explore
           WAIT=22 shot 17-species $D -wildid-species "Lutra lutra"
           WAIT=10 shot 18-settings $D -wildid-open settings
-          WAIT=11.6 shot 19-new-animal $D -wildid-demo-toast new
-          WAIT=11.6 shot 20-new-animal-during-sound-id $D -wildid-open sound -wildid-demo-toast new
-          WAIT=11.6 shot 21-level-up $D -wildid-tab wildlings -wildid-demo-toast levelup
+          WAIT=14 shot 19-new-animal $D -wildid-demo-toast new
+          WAIT=14 shot 20-new-animal-during-sound-id $D -wildid-open sound -wildid-demo-toast new
+          WAIT=14 shot 21-level-up $D -wildid-tab wildlings -wildid-demo-toast levelup
           WAIT=26 shot 22-wildling-kangaroo $D -wildid-pet "Macropus giganteus"
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
