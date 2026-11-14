@@ -267,6 +267,7 @@ struct PetDetailView: View {
                     }
 
                     RarityPanel(entry: e)
+                    CatchSoundButton(entry: e)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("XP history").font(.system(size: 18, weight: .heavy, design: .rounded))

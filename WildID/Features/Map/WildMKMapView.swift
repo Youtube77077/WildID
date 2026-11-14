@@ -39,6 +39,8 @@ struct MapFocusRequest: Equatable {
 struct WildMKMapView: UIViewRepresentable {
     var pins: [MapPin]
     var layers: [TileLayer] = []
+    /// Soft red→yellow circles where a species is recorded most.
+    var hotspots: [RangeHotspot] = []
     var showsUserLocation = true
     var satellite = false
     var focus: MapFocusRequest? = nil
@@ -74,6 +76,7 @@ struct WildMKMapView: UIViewRepresentable {
         map.showsUserLocation = showsUserLocation
         context.coordinator.sync(pins: pins, on: map)
         context.coordinator.sync(layers: layers, on: map)
+        context.coordinator.sync(hotspots: hotspots, on: map)
         if let focus, focus != context.coordinator.lastFocus {
             context.coordinator.lastFocus = focus
             map.setRegion(map.regionThatFits(focus.region), animated: context.coordinator.hasAppeared)
@@ -98,6 +101,8 @@ struct WildMKMapView: UIViewRepresentable {
         var hasAppeared = false
         private var annotations: [String: PinAnnotation] = [:]
         private var overlays: [String: MKTileOverlay] = [:]
+        private var hotspotOverlays: [HotspotOverlay] = []
+        private var lastHotspots: [RangeHotspot] = []
         private var regionWork: DispatchWorkItem?
 
         init(_ parent: WildMKMapView) {
@@ -121,6 +126,15 @@ struct WildMKMapView: UIViewRepresentable {
             if !add.isEmpty { map.addAnnotations(add) }
         }
 
+        func sync(hotspots: [RangeHotspot], on map: MKMapView) {
+            guard hotspots != lastHotspots else { return }
+            lastHotspots = hotspots
+            map.removeOverlays(hotspotOverlays)
+            // Weakest first so the strongest circles sit on top.
+            hotspotOverlays = hotspots.sorted { $0.weight < $1.weight }.map(HotspotOverlay.init)
+            map.addOverlays(hotspotOverlays, level: .aboveRoads)
+        }
+
         func sync(layers: [TileLayer], on map: MKMapView) {
             let ids = Set(layers.map(\.id))
             for (id, overlay) in overlays where !ids.contains(id) {
@@ -139,6 +153,7 @@ struct WildMKMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let hotspot = overlay as? HotspotOverlay { return HotspotRenderer(overlay: hotspot) }
             if let tile = overlay as? WildTileOverlay {
                 let r = MKTileOverlayRenderer(tileOverlay: tile)
                 r.alpha = tile.opacity

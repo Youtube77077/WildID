@@ -434,3 +434,57 @@ final class AccountTests: XCTestCase {
         XCTAssertNoThrow(try store.signIn(username: "badger", password: "newsecret"))
     }
 }
+
+final class HumanVoiceGuardTests: XCTestCase {
+    /// A window counts as human when BirdNET's human classes fire, or when Apple heard a person
+    /// talking/whistling within the window.
+    func testHumanWindowDetection() {
+        XCTAssertTrue(BirdNETClassifier.isHumanWindow(birdnetHuman: 0.4, appleHumanTimes: [], windowStart: 10))
+        XCTAssertTrue(BirdNETClassifier.isHumanWindow(birdnetHuman: 0.01, appleHumanTimes: [11.5], windowStart: 10))
+        XCTAssertFalse(BirdNETClassifier.isHumanWindow(birdnetHuman: 0.05, appleHumanTimes: [2, 30], windowStart: 10))
+    }
+
+    /// Imitations never catch: detections that only happened alongside a human voice don't count,
+    /// even when the model is very confident.
+    func testImitationsCannotCatch() {
+        XCTAssertFalse(LiveDetection.canCatch(cleanCount: 0, maxConfidence: 0.99, threshold: 0.15, humanFlagged: true))
+        XCTAssertFalse(LiveDetection.canCatch(cleanCount: 0, maxConfidence: 0.99, threshold: 0.15, humanFlagged: false))
+        XCTAssertFalse(LiveDetection.canCatch(cleanCount: 1, maxConfidence: 0.4, threshold: 0.15, humanFlagged: false))
+        XCTAssertTrue(LiveDetection.canCatch(cleanCount: 2, maxConfidence: 0.3, threshold: 0.15, humanFlagged: false))
+        XCTAssertTrue(LiveDetection.canCatch(cleanCount: 1, maxConfidence: 0.8, threshold: 0.15, humanFlagged: false))
+    }
+
+    /// BirdNET's own human classes are found in the label file.
+    func testBirdNETHasHumanClasses() throws {
+        guard BirdNETClassifier.isAvailable else { throw XCTSkip("BirdNET model not bundled in this build.") }
+        let c = try BirdNETClassifier()
+        XCTAssertEqual(c.labels.filter { $0.isNonEvent && $0.scientificName.hasPrefix("Human") }.count, 3)
+    }
+}
+
+final class RangeHotspotTests: XCTestCase {
+    /// Cells close together merge into one hotspot centred on their busiest part; a far-away
+    /// group becomes its own, weaker hotspot.
+    func testClusteringFindsHotspots() {
+        let c = { (lat: Double, lon: Double, n: Int) in RangeHotspots.Cell(coordinate: .init(latitude: lat, longitude: lon), count: n) }
+        let cells = [c(52.4, 5.0, 100), c(52.5, 5.1, 40), c(52.3, 4.9, 20), c(40.4, -3.7, 10)]
+        let spots = RangeHotspots.cluster(cells, mergeKm: 50)
+        XCTAssertEqual(spots.count, 2)
+        XCTAssertEqual(spots[0].weight, 1, accuracy: 0.001)
+        XCTAssertEqual(spots[0].center.latitude, 52.4, accuracy: 0.1)
+        XCTAssertLessThan(spots[1].weight, spots[0].weight)
+    }
+
+    /// UTFGrid decoding: standard character → key index and tile cell → coordinate.
+    func testGridDecoding() {
+        XCTAssertEqual(RangeHotspots.keyIndex(" "), 0)
+        XCTAssertEqual(RangeHotspots.keyIndex("!"), 1)
+        XCTAssertEqual(RangeHotspots.keyIndex("$"), 3)      // '#' (35) is skipped by the encoding
+        let tile = RangeHotspots.GridTile(grid: [" !", "  "], keys: ["", "a"], data: ["a": .init(cellCount: 7, count: nil)])
+        let cells = RangeHotspots.cells(of: tile, z: 0, x: 0, y: 0)
+        XCTAssertEqual(cells.count, 1)
+        XCTAssertEqual(cells[0].count, 7)
+        XCTAssertGreaterThan(cells[0].coordinate.longitude, 0)    // right half of the world
+        XCTAssertGreaterThan(cells[0].coordinate.latitude, 0)     // top half
+    }
+}

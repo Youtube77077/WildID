@@ -68,6 +68,15 @@ final class AppleSoundClassifier: NSObject, SNResultsObserving, @unchecked Senda
     }()
 
     var onDetection: ((Detection) -> Void)?
+    /// Called with the session time whenever a person is heard (talking, whistling, singing…).
+    var onHuman: ((TimeInterval) -> Void)?
+
+    /// Apple classifier identifiers that mean a human is making the sound.
+    static let humanIdentifiers: Set<String> = [
+        "speech", "shout", "yell", "whispering", "laughter", "giggling", "snicker", "chuckle_chortle", "belly_laugh",
+        "singing", "choir_singing", "yodeling", "rapping", "humming", "whistling", "child_speech_kid_speaking",
+        "children_shouting", "screaming", "crying_sobbing", "sigh", "cough", "sneeze", "baby_crying", "baby_laughter",
+    ]
 
     private let analyzer: SNAudioStreamAnalyzer
     private let queue = DispatchQueue(label: "wildid.soundanalysis")
@@ -100,6 +109,9 @@ final class AppleSoundClassifier: NSObject, SNResultsObserving, @unchecked Senda
     func request(_ request: SNRequest, didProduce result: SNResult) {
         guard let result = result as? SNClassificationResult else { return }
         let time = result.timeRange.start.seconds
+        if result.classifications.prefix(8).contains(where: { Self.humanIdentifiers.contains($0.identifier) && $0.confidence >= 0.5 }) {
+            onHuman?(time)
+        }
         for c in result.classifications.prefix(8) {
             guard let mapping = Self.mappings[c.identifier], c.confidence >= mapping.minConfidence * confidenceScale else { continue }
             onDetection?(Detection(identifier: c.identifier, mapping: mapping, confidence: c.confidence, time: time))

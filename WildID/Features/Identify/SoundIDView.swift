@@ -193,7 +193,7 @@ struct DetectionCard: View {
         HStack(spacing: 14) {
             ZStack(alignment: .bottomTrailing) {
                 SpeciesThumb(url: detection.species.photoURL, group: detection.species.group, size: 72, corner: 8)
-                    .opacity(detection.species.isGroupLevel ? 0.75 : 1)
+                    .opacity(detection.species.isGroupLevel || detection.humanFlagged ? 0.6 : 1)
                 if detection.source == .apple {
                     Image(systemName: "apple.logo")
                         .font(.system(size: 9))
@@ -219,6 +219,11 @@ struct DetectionCard: View {
                     Text(detection.species.isGroupLevel ? "\(detection.species.scientificName) · group only" : detection.species.scientificName)
                         .font(.subheadline).italic()
                         .foregroundStyle(Theme.secondaryText)
+                }
+                if detection.humanFlagged {
+                    Label("Possible: a person was heard too (not added)", systemImage: "person.wave.2.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
                 }
                 HStack(spacing: 10) {
                     Label(detection.firstHeard.clockString, systemImage: "clock")

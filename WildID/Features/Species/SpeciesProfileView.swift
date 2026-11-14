@@ -16,6 +16,7 @@ struct SpeciesProfileView: View {
     @State private var expandedTopics: Set<String> = []
     @State private var showSighting = false
     @State private var showMap = false
+    @State private var rangeHotspots: [RangeHotspot] = []
     @State private var summaryExpanded = false
     @Query private var entries: [WildIndexEntry]
 
@@ -285,30 +286,27 @@ struct SpeciesProfileView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Range & records").font(.wildTitle)
                 ZStack(alignment: .bottomLeading) {
-                    WildMKMapView(pins: [], layers: rangeLayers(taxon), showsUserLocation: true,
+                    WildMKMapView(pins: [], layers: rangeLayers(taxon), hotspots: rangeHotspots, showsUserLocation: true,
                                   focus: MapFocusRequest(token: UUID(uuidString: "00000000-0000-0000-0000-\(String(format: "%012d", taxon.id))") ?? UUID(),
                                                          region: MKCoordinateRegion(center: location.activePlace?.coordinate ?? CLLocationCoordinate2D(latitude: 20, longitude: 0),
                                                                                     span: MKCoordinateSpan(latitudeDelta: 70, longitudeDelta: 90))),
-                                  interactive: true)
+                                  interactive: true,
+                                  onRegionChange: { r in Task { rangeHotspots = await RangeHotspots.load(taxonID: taxon.id, region: r) } })
                         .frame(height: 260)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 HStack(spacing: 14) {
                     legend(color: Color(red: 0.36, green: 0.55, blue: 0.35), text: "Expert range (iNaturalist, where available)")
                 }
-                legend(color: .orange, text: model.gbifCount.map { "GBIF occurrence records (\($0.formatted()))" } ?? "GBIF occurrence records")
-                Text("Ranges show where a species is expected to live; occurrence records are individual verified sightings and specimens. They are shown separately and are never mixed up.")
+                HotspotLegend()
+                Text("Circles show where the animal is recorded most (verified iNaturalist sightings): red in the middle where there are the most records, fading to yellow at the edge. The green shading is the expert range map, where one exists. Zoom in or out to update the circles.")
                     .font(.caption).foregroundStyle(Theme.secondaryText)
             }
         }
     }
 
     private func rangeLayers(_ taxon: INatTaxon) -> [TileLayer] {
-        var layers = [TileLayer(id: "range-\(taxon.id)", template: INaturalistAPI.rangeTileTemplate(taxonID: taxon.id), opacity: 0.55)]
-        if let key = model.gbifKey {
-            layers.append(TileLayer(id: "gbif-\(key)", template: GBIFAPI.densityTileTemplate(taxonKey: key), opacity: 0.85))
-        }
-        return layers
+        [TileLayer(id: "range-\(taxon.id)", template: INaturalistAPI.rangeTileTemplate(taxonID: taxon.id), opacity: 0.45)]
     }
 
     private func legend(color: Color, text: String) -> some View {

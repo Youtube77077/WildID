@@ -268,16 +268,18 @@ struct SpeciesMapSheet: View {
     @Environment(LocationService.self) private var location
     @State private var observations: [INatObservation] = []
     @State private var selected: MapPin?
-    @State private var gbifKey: Int?
     @State private var focus: MapFocusRequest?
+    @State private var hotspots: [RangeHotspot] = []
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                WildMKMapView(pins: pins, layers: layers, focus: focus, onSelect: { selected = $0 }, onRegionChange: { r in
+                WildMKMapView(pins: pins, layers: layers, hotspots: hotspots, focus: focus, onSelect: { selected = $0 }, onRegionChange: { r in
                     Task { await load(r) }
+                    Task { hotspots = await RangeHotspots.load(taxonID: taxon.id, region: r) }
                 })
                 .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .top) { HotspotLegend().padding(.top, 8) }
                 if let pin = selected {
                     HStack(spacing: 12) {
                         SpeciesThumb(url: pin.imageURL, group: pin.group, size: 60, corner: 8)
@@ -299,15 +301,12 @@ struct SpeciesMapSheet: View {
                 if let c = location.activePlace?.coordinate {
                     focus = MapFocusRequest(token: UUID(), region: MKCoordinateRegion(center: c, latitudinalMeters: 60_000, longitudinalMeters: 60_000))
                 }
-                gbifKey = try? await GBIFAPI().taxonKey(scientificName: taxon.name)
             }
         }
     }
 
     private var layers: [TileLayer] {
-        var l = [TileLayer(id: "range", template: INaturalistAPI.rangeTileTemplate(taxonID: taxon.id), opacity: 0.5)]
-        if let gbifKey { l.append(TileLayer(id: "gbif", template: GBIFAPI.densityTileTemplate(taxonKey: gbifKey), opacity: 0.7)) }
-        return l
+        [TileLayer(id: "range", template: INaturalistAPI.rangeTileTemplate(taxonID: taxon.id), opacity: 0.4)]
     }
 
     private var pins: [MapPin] {
@@ -327,5 +326,20 @@ struct SpeciesMapSheet: View {
         if let obs = try? await INaturalistAPI().observations(in: (sw.0, sw.1, ne.0, ne.1), taxonID: taxon.id, perPage: 100) {
             observations = obs
         }
+    }
+}
+
+/// Legend for the hotspot circles.
+struct HotspotLegend: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(RadialGradient(colors: [Color(red: 0.86, green: 0.12, blue: 0.10), .orange, Color(red: 1, green: 0.85, blue: 0.3).opacity(0.3)],
+                                     center: .center, startRadius: 0, endRadius: 9))
+                .frame(width: 18, height: 18)
+            Text("Where it's seen most · red = most records").font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(.regularMaterial, in: Capsule())
     }
 }

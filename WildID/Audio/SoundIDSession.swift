@@ -64,7 +64,7 @@ final class InferencePipeline: @unchecked Sendable {
     private var classifier: BirdNETClassifier?
     private var threshold: Float = 0.5
     private var useFilter = true
-    var onResult: (@Sendable ([BirdNETClassifier.Prediction], TimeInterval, [Float]) -> Void)?
+    var onResult: (@Sendable ([BirdNETClassifier.Prediction], TimeInterval, [Float], Float) -> Void)?
 
     func configure(classifier: BirdNETClassifier?, threshold: Float, useFilter: Bool) {
         lock.withLock {
@@ -98,12 +98,12 @@ final class InferencePipeline: @unchecked Sendable {
         let window = ring.snapshot()
         let windowStart = Double(endPosition) / AudioCaptureEngine.analysisSampleRate - 3.0
         queue.async { [weak self] in
-            let predictions = (try? window.withUnsafeBufferPointer {
-                try model.classify($0, threshold: minConfidence, useLocationFilter: filter)
-            }) ?? []
+            let result = (try? window.withUnsafeBufferPointer {
+                try model.classifyWithHuman($0, threshold: minConfidence, useLocationFilter: filter)
+            }) ?? ([], 0)
             guard let self else { return }
             self.lock.withLock { self.busy = false }
-            self.onResult?(Array(predictions.prefix(4)), windowStart, window)
+            self.onResult?(Array(result.predictions.prefix(4)), windowStart, window, result.human)
         }
     }
 }
@@ -143,6 +143,17 @@ struct LiveDetection: Identifiable, Equatable {
     var resolved = false
     var clipFileName: String?
     var lastConfidence: Float
+    /// Windows in which a person was also heard; they never count toward a catch.
+    var humanCount = 0
+    /// Every hit so far came with a human voice/whistle: shown as "possible", never caught.
+    var humanFlagged = false
+
+    /// Catch rule: heard in two clean windows (windows overlap, so one real call usually spans
+    /// two), or one clean window that is very confident.
+    static func canCatch(cleanCount: Int, maxConfidence: Float, threshold: Float, humanFlagged: Bool) -> Bool {
+        guard !humanFlagged, cleanCount >= 1 else { return false }
+        return cleanCount >= 2 || maxConfidence >= max(0.7, threshold + 0.2)
+    }
 }
 
 struct SessionSummary: Identifiable {
@@ -183,6 +194,10 @@ final class SoundIDSession {
     private var liveFileURL: URL?
     private var timer: Timer?
     private var lastBirdNETSpeciesTime: TimeInterval = -100
+    /// Session times when Apple's classifier heard a person (speech, whistling, singing…).
+    private var appleHumanTimes: [TimeInterval] = []
+    /// A person was heard recently (shown in the UI).
+    private(set) var humanHeardAt: Date?
     private var locationAppliedToFilter = false
 
     // Dependencies (set by the view before starting).
@@ -207,6 +222,8 @@ final class SoundIDSession {
         summary = nil
         elapsed = 0
         lastBirdNETSpeciesTime = -100
+        appleHumanTimes = []
+        humanHeardAt = nil
         sessionID = UUID()
         spectrogram.reset()
 
@@ -227,8 +244,8 @@ final class SoundIDSession {
         let engine = AudioCaptureEngine()
         pipeline.configure(classifier: birdnet, threshold: settings?.sensitivity.threshold ?? 0.15,
                            useFilter: settings?.useLocationFilter ?? true)
-        pipeline.onResult = { @Sendable [weak self] predictions, windowStart, window in
-            Task { @MainActor in self?.handleBirdNET(predictions, windowStart: windowStart, samples: window) }
+        pipeline.onResult = { @Sendable [weak self] predictions, windowStart, window, human in
+            Task { @MainActor in self?.handleBirdNET(predictions, windowStart: windowStart, samples: window, human: human) }
         }
         var appleClassifier: AppleSoundClassifier? = nil
         if settings?.detectNonBirdSounds ?? true {
@@ -236,6 +253,9 @@ final class SoundIDSession {
                                                         confidenceScale: settings?.sensitivity.appleConfidenceScale ?? 0.85)
             appleClassifier?.onDetection = { @Sendable [weak self] d in
                 Task { @MainActor in self?.handleApple(d) }
+            }
+            appleClassifier?.onHuman = { @Sendable [weak self] time in
+                Task { @MainActor in self?.appleHumanTimes.append(time) }
             }
         }
         apple = appleClassifier
@@ -388,8 +408,11 @@ final class SoundIDSession {
 
     // MARK: - Detection handling (main actor)
 
-    private func handleBirdNET(_ predictions: [BirdNETClassifier.Prediction], windowStart: TimeInterval, samples: [Float]) {
+    private func handleBirdNET(_ predictions: [BirdNETClassifier.Prediction], windowStart: TimeInterval, samples: [Float], human: Float) {
         guard isActive else { return }
+        appleHumanTimes.removeAll { $0 < windowStart - 10 }
+        let humanWindow = BirdNETClassifier.isHumanWindow(birdnetHuman: human, appleHumanTimes: appleHumanTimes, windowStart: windowStart)
+        if humanWindow { humanHeardAt = Date() }
         for p in predictions {
             var sci = p.label.scientificName
             var common = p.label.commonName
@@ -399,7 +422,8 @@ final class SoundIDSession {
             }
             lastBirdNETSpeciesTime = windowStart + 3
             register(scientificName: sci, commonName: common, group: .birds, groupLevel: false,
-                     confidence: p.confidence, time: max(0, windowStart), source: .birdnet, clipSamples: samples)
+                     confidence: p.confidence, time: max(0, windowStart), source: .birdnet, clipSamples: samples,
+                     humanNearby: humanWindow)
         }
     }
 
@@ -412,16 +436,20 @@ final class SoundIDSession {
             if d.mapping.group == .birds && d.time - lastBirdNETSpeciesTime < 4 { return }
         }
         let clip = d.mapping.isGroupLevel ? nil : pipeline.ring.snapshot()
+        let humanWindow = appleHumanTimes.contains { abs($0 - d.time) < 2 }
         register(scientificName: d.mapping.scientificName, commonName: d.mapping.commonName, group: d.mapping.group,
-                 groupLevel: d.mapping.isGroupLevel, confidence: Float(d.confidence), time: d.time, source: .apple, clipSamples: clip)
+                 groupLevel: d.mapping.isGroupLevel, confidence: Float(d.confidence), time: d.time, source: .apple, clipSamples: clip,
+                 humanNearby: humanWindow)
     }
 
     private func register(scientificName: String, commonName: String, group: AnimalGroup, groupLevel: Bool,
-                          confidence: Float, time: TimeInterval, source: LiveDetection.Source, clipSamples: [Float]?) {
+                          confidence: Float, time: TimeInterval, source: LiveDetection.Source, clipSamples: [Float]?,
+                          humanNearby: Bool = false) {
         let key = scientificName.lowercased()
         if let i = detections.firstIndex(where: { $0.id == key }) {
             var d = detections[i]
             d.count += 1
+            if humanNearby { d.humanCount += 1 } else { d.humanFlagged = false }
             d.lastHeard = max(d.lastHeard, time)
             d.lastConfidence = confidence
             if confidence > d.maxConfidence { d.maxConfidence = confidence }
@@ -432,13 +460,15 @@ final class SoundIDSession {
         }
         let ref = SpeciesRef(scientificName: scientificName, commonName: commonName, group: group, isGroupLevel: groupLevel)
         let isNew = !groupLevel && !(collection?.contains(scientificName) ?? false)
-        let d = LiveDetection(id: key, species: ref, source: source, firstHeard: time, lastHeard: time, offsets: [time],
+        var d = LiveDetection(id: key, species: ref, source: source, firstHeard: time, lastHeard: time, offsets: [time],
                               maxConfidence: confidence, count: 1, isNewToIndex: isNew,
-                              newHighlightUntil: Date().addingTimeInterval(groupLevel ? 0 : 8), lastConfidence: confidence)
+                              newHighlightUntil: Date().addingTimeInterval(groupLevel || humanNearby ? 0 : 8), lastConfidence: confidence)
+        d.humanCount = humanNearby ? 1 : 0
+        d.humanFlagged = humanNearby
         withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
             detections.insert(d, at: 0)
         }
-        if settings?.haptics ?? true, !groupLevel { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        if settings?.haptics ?? true, !groupLevel, !humanNearby { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         Task {
             let resolved = await TaxonResolver.shared.resolve(scientificName: scientificName, fallbackCommonName: commonName,
                                                               fallbackGroup: group, isGroupLevel: groupLevel)
@@ -456,9 +486,10 @@ final class SoundIDSession {
         guard let i = detections.firstIndex(where: { $0.id == id }) else { return }
         let d = detections[i]
         guard d.resolved, !d.caught, !d.species.isGroupLevel, settings?.autoAddToWildIndex ?? true, let collection else { return }
-        let threshold = settings?.sensitivity.threshold ?? 0.15
-        let strongSingle = d.maxConfidence >= max(0.7, threshold + 0.2)
-        guard d.count >= 2 || strongSingle else { return }
+        // Only windows without a person talking, whistling or singing count, so imitations
+        // can't add animals to the Wild Index.
+        guard LiveDetection.canCatch(cleanCount: d.count - d.humanCount, maxConfidence: d.maxConfidence, threshold: settings?.sensitivity.threshold ?? 0.15,
+                                     humanFlagged: d.humanFlagged) else { return }
         detections[i].caught = true
 
         var clipName: String? = nil

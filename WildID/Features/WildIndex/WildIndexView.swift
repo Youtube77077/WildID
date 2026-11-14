@@ -17,6 +17,10 @@ struct WildIndexView: View {
     @State private var sort: SortOrder = .newest
     @State private var search = ""
     @Environment(Router.self) private var router
+    /// Search results across every animal (not just your catches).
+    @State private var allResults: [INatTaxon] = []
+    @State private var gbifResults: [GBIFAPI.SpeciesHit] = []
+    @State private var searchingAll = false
 
     private var visible: [WildIndexEntry] {
         var list = entries.filter { filter == nil || $0.group == filter }
@@ -51,9 +55,12 @@ struct WildIndexView: View {
                     if entries.isEmpty {
                         EmptyStateView(symbol: "square.grid.2x2", title: "Your Wild Index is empty",
                                        message: "Animals you identify with Sound ID, Photo ID or Step by Step — or add as sightings — are collected here. Each species gets one card; every encounter is kept in its journal.")
-                    } else if visible.isEmpty {
+                    } else if visible.isEmpty && search.isEmpty {
                         EmptyStateView(symbol: "magnifyingglass", title: "No matches", message: "Try another group or search.")
-                    } else {
+                    } else if !visible.isEmpty {
+                        if !search.isEmpty {
+                            Text("IN YOUR WILD INDEX").font(.system(size: 12, weight: .heavy, design: .rounded)).foregroundStyle(Theme.secondaryText)
+                        }
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 14) {
                             ForEach(visible) { e in
                                 NavigationLink(value: WildIndexEntryRoute(key: e.key)) {
@@ -63,6 +70,7 @@ struct WildIndexView: View {
                             }
                         }
                     }
+                    if !search.isEmpty { allAnimalsSection }
                     if !undiscovered.isEmpty && search.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             SectionHeader(title: "Yet to catch nearby", subtitle: "Recorded near \(location.activePlace?.name ?? "you") at this time of year")
@@ -81,7 +89,8 @@ struct WildIndexView: View {
                 .padding(.horizontal, Theme.gutter)
                 .padding(.bottom, 40)
             }
-            .searchable(text: $search, prompt: "Search your Wild Index")
+            .searchable(text: $search, prompt: "Search your Wild Index or all animals")
+            .task(id: search) { await searchAllAnimals() }
             .navigationTitle("Wild Index")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -97,6 +106,58 @@ struct WildIndexView: View {
             }
             .wildDestinations()
             .sheet(isPresented: Binding(get: { router.showAchievements }, set: { router.showAchievements = $0 })) { AchievementsView() }
+        }
+    }
+
+    /// Every animal matching the search (iNaturalist, with GBIF for names it lacks).
+    @ViewBuilder
+    private var allAnimalsSection: some View {
+        let mine = Set(entries.map(\.key))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("ALL ANIMALS").font(.system(size: 12, weight: .heavy, design: .rounded)).foregroundStyle(Theme.secondaryText)
+                if searchingAll { ProgressView().controlSize(.small) }
+            }
+            .padding(.top, 8)
+            ForEach(allResults) { t in
+                NavigationLink(value: SpeciesRef(taxon: t)) {
+                    SpeciesRow(commonName: t.commonName, scientificName: t.name, photoURL: t.thumbURL, group: t.group,
+                               inIndex: mine.contains(t.name.lowercased()), detail: t.group.singular)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 90)
+            }
+            ForEach(gbifResults) { g in
+                NavigationLink(value: SpeciesRef(scientificName: g.name, commonName: g.commonName ?? g.name, group: g.group)) {
+                    SpeciesRow(commonName: g.commonName ?? g.name, scientificName: g.name, photoURL: nil, group: g.group,
+                               detail: g.class.map { "GBIF · \($0)" } ?? "GBIF")
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 90)
+            }
+            if !searchingAll && allResults.isEmpty && gbifResults.isEmpty && search.count >= 2 {
+                Text("No animals found for “\(search)”.").font(.subheadline).foregroundStyle(Theme.secondaryText)
+            }
+        }
+    }
+
+    private func searchAllAnimals() async {
+        let q = search.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 2 else { allResults = []; gbifResults = []; return }
+        try? await Task.sleep(nanoseconds: 300_000_000)   // debounce typing
+        guard !Task.isCancelled else { return }
+        searchingAll = true
+        defer { searchingAll = false }
+        let found = (try? await INaturalistAPI().search(q, group: filter)) ?? []
+        guard !Task.isCancelled else { return }
+        allResults = found
+        if found.count < 8 {
+            let known = Set(found.map { $0.name.lowercased() })
+            gbifResults = ((try? await GBIFAPI().searchSpecies(q)) ?? []).filter { !known.contains($0.name.lowercased()) }.prefix(15).map { $0 }
+        } else {
+            gbifResults = []
         }
     }
 

@@ -70,6 +70,7 @@ final class BirdNETClassifier: @unchecked Sendable {
             metaModel = nil
         }
         input = try MLMultiArray(shape: [1, NSNumber(value: Self.windowSamples)], dataType: .float32)
+        humanIndices = labels.indices.filter { labels[$0].isNonEvent && labels[$0].scientificName.hasPrefix("Human") }
     }
 
     /// BirdNET's 48-week calendar: four "weeks" per month.
@@ -141,18 +142,28 @@ final class BirdNETClassifier: @unchecked Sendable {
         lock.withLock { occurrence?.filter { $0 >= Self.metaThreshold }.count }
     }
 
+    /// Indices of BirdNET's own "Human vocal", "Human whistle" and "Human non-vocal" classes.
+    private var humanIndices: [Int] = []
+
     /// Classifies exactly `windowSamples` samples. Returns predictions above `threshold`,
     /// sorted by confidence. Species unlikely at the current place/week are dropped unless the
     /// acoustic evidence is overwhelming (≥ 0.9).
     func classify(_ samples: UnsafeBufferPointer<Float>, threshold: Float, useLocationFilter: Bool) throws -> [Prediction] {
+        try classifyWithHuman(samples, threshold: threshold, useLocationFilter: useLocationFilter).predictions
+    }
+
+    /// Same as `classify`, plus the strongest of BirdNET's human classes (voice, whistle, other
+    /// human sounds) for this window, whatever the threshold — used to stop imitations counting.
+    func classifyWithHuman(_ samples: UnsafeBufferPointer<Float>, threshold: Float, useLocationFilter: Bool) throws -> (predictions: [Prediction], human: Float) {
         precondition(samples.count == Self.windowSamples)
         let out: MLFeatureProvider = try lock.withLock {
             let dst = input.dataPointer.bindMemory(to: Float.self, capacity: Self.windowSamples)
             dst.update(from: samples.baseAddress!, count: Self.windowSamples)
             return try audioModel.prediction(from: MLDictionaryFeatureProvider(dictionary: ["audio": MLFeatureValue(multiArray: input)]))
         }
-        guard let scores = out.featureValue(for: "scores")?.multiArrayValue else { return [] }
+        guard let scores = out.featureValue(for: "scores")?.multiArrayValue else { return ([], 0) }
         let logits = Self.floats(scores)
+        let human = humanIndices.compactMap { $0 < logits.count ? 1 / (1 + expf(-logits[$0])) : nil }.max() ?? 0
         let occ = lock.withLock { useLocationFilter ? occurrence : nil }
         var results: [Prediction] = []
         for (i, logit) in logits.enumerated() where i < labels.count {
@@ -162,7 +173,15 @@ final class BirdNETClassifier: @unchecked Sendable {
             if let o, o < Self.metaThreshold, p < 0.9 { continue }
             results.append(Prediction(index: i, label: labels[i], confidence: p, occurrence: o))
         }
-        return results.sorted { $0.confidence > $1.confidence }
+        return (results.sorted { $0.confidence > $1.confidence }, human)
+    }
+
+    /// A 3 s window counts as "a person is making sound" when BirdNET's human classes reach
+    /// 0.15, or Apple's sound classifier heard speech/whistling/singing/humming overlapping it.
+    static let humanThreshold: Float = 0.15
+    static func isHumanWindow(birdnetHuman: Float, appleHumanTimes: [TimeInterval], windowStart: TimeInterval) -> Bool {
+        if birdnetHuman >= humanThreshold { return true }
+        return appleHumanTimes.contains { $0 >= windowStart - 1.0 && $0 <= windowStart + 3.5 }
     }
 
     static func floats(_ array: MLMultiArray) -> [Float] {

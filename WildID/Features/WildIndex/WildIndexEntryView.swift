@@ -86,6 +86,8 @@ struct WildIndexEntryView: View {
                     .background(entry.tier.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
 
+                CatchSoundButton(entry: entry)
+
                 Text("Journal").font(.wildTitle)
                 ForEach(entry.sortedCatches) { c in
                     CatchRow(catchItem: c, entry: entry)
@@ -167,6 +169,62 @@ struct CatchRow: View {
             TextField("Notes", text: $notes)
             Button("Save") { catchItem.notes = notes; try? collection.context.save(); BackupStore.shared.scheduleBackup(context: collection.context) }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+}
+
+/// One button for all the sounds you caught of an animal: tap to play the newest; tap again while
+/// it plays to jump to the 2nd, then the 3rd catch, and so on (wrapping round). Long-press stops.
+struct CatchSoundButton: View {
+    let entry: WildIndexEntry
+    @Environment(AudioPlayer.self) private var player
+    @State private var index = 0
+
+    private var clips: [(id: String, url: URL, date: Date)] {
+        entry.sortedCatches.compactMap { c in
+            guard let url = c.clipURL, FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return (c.id.uuidString, url, c.date)
+        }
+    }
+
+    var body: some View {
+        let clips = self.clips
+        if !clips.isEmpty {
+            let playingIndex = clips.firstIndex { player.isPlayingItem($0.id) }
+            Button {
+                if let playingIndex {
+                    index = (playingIndex + 1) % clips.count       // tap again → next catch
+                } else {
+                    index = min(index, clips.count - 1)
+                }
+                if clips.count == 1, playingIndex != nil { player.pause(); return }
+                player.play(id: clips[index].id, url: clips[index].url)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: playingIndex != nil ? "waveform" : "play.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .symbolEffect(.variableColor.iterative, options: .repeating, isActive: playingIndex != nil)
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Theme.moss.gradient, in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(playingIndex.map { "Catch \($0 + 1) of \(clips.count)" } ?? "Play the sounds you caught")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                        Text(playingIndex.map { i in clips.count > 1 ? "\(clips[i].date.wildShort) · tap for the next one" : clips[i].date.wildShort }
+                             ?? (clips.count > 1 ? "\(clips.count) recordings · tap again for the next" : "1 recording"))
+                            .font(.caption).foregroundStyle(Theme.secondaryText)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in player.stop() })
+            .accessibilityHint(clips.count > 1 ? "Tap again while playing to hear the next catch" : "")
+            if let blocked = player.blockedMessage {
+                Text(blocked).font(.caption).foregroundStyle(.orange)
+            }
         }
     }
 }

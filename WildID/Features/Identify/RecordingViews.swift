@@ -8,25 +8,42 @@ import SwiftUI
 @MainActor
 @Observable
 final class PlaybackSpectrogramModel {
-    private(set) var image: CGImage?
-    private var lastKey = -1
-    private var task: Task<Void, Never>?
+    /// Spectrogram pieces of `chunk` seconds each, decoded once and kept (a few at a time) so
+    /// playback never re-reads the file while it scrolls.
+    private(set) var chunks: [Int: CGImage] = [:]
+    private var loading: Set<Int> = []
+    private var url: URL?
+    private var dark = false
     static let window: Double = 8
+    static let chunk: Double = 30
 
-    func update(url: URL, time: TimeInterval, dark: Bool) {
-        let key = Int(time * 4) * (dark ? -1 : 1)
-        guard key != lastKey else { return }
-        lastKey = key
-        task?.cancel()
-        task = Task.detached(priority: .utility) { [weak self] in
-            let start = max(0, time - Self.window / 2)
-            guard let samples = Self.read(url: url, from: start, seconds: Self.window) else { return }
-            // Pad the beginning so the playhead stays centered at the start of the file.
-            let pad = Int(max(0, Self.window / 2 - time) * AudioCaptureEngine.analysisSampleRate)
-            let padded = [Float](repeating: 0, count: pad) + samples
-            let img = StaticSpectrogram.image(samples: padded, dark: dark)
-            if Task.isCancelled { return }
-            await MainActor.run { self?.image = img }
+    /// Makes sure the pieces around `time` exist (decoded in the background).
+    func ensure(url: URL, time: TimeInterval, duration: TimeInterval, dark: Bool) {
+        if self.url != url || self.dark != dark {
+            self.url = url
+            self.dark = dark
+            chunks = [:]
+            loading = []
+        }
+        let first = max(0, Int((time - Self.window) / Self.chunk))
+        let last = max(first, Int((time + Self.window + Self.chunk / 2) / Self.chunk))
+        for index in first...last where chunks[index] == nil && !loading.contains(index) && Double(index) * Self.chunk < max(duration, 0.1) {
+            loading.insert(index)
+            let length = Self.chunk
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let start = Double(index) * length
+                let samples = PlaybackSpectrogramModel.read(url: url, from: start, seconds: length) ?? []
+                let img = samples.isEmpty ? nil : StaticSpectrogram.image(samples: samples, dark: dark)
+                await MainActor.run {
+                    guard let self, self.url == url else { return }
+                    self.loading.remove(index)
+                    if let img { self.chunks[index] = img }
+                    // Keep memory small on 3-hour recordings: only pieces near the playhead.
+                    if self.chunks.count > 8 {
+                        for k in self.chunks.keys where abs(k - index) > 3 { self.chunks[k] = nil }
+                    }
+                }
+            }
         }
     }
 
@@ -65,10 +82,22 @@ struct RecordingPlayerCard: View {
         VStack(spacing: 10) {
             ZStack {
                 Color(red: 9 / 255, green: 34 / 255, blue: 33 / 255)
-                if let image = spectro.image {
-                    Image(decorative: image, scale: 1)
-                        .resizable()
-                        .interpolation(.medium)
+                // Scrolls at display rate from the player's exact position.
+                TimelineView(.animation(paused: !player.isPlayingItem(id))) { _ in
+                    let t = isCurrent ? player.liveTime : 0
+                    Canvas { ctx, size in
+                        let pps = size.width / PlaybackSpectrogramModel.window      // points per second
+                        let left = t - PlaybackSpectrogramModel.window / 2
+                        for (index, img) in spectro.chunks {
+                            let start = Double(index) * PlaybackSpectrogramModel.chunk
+                            let x = (start - left) * pps
+                            let w = PlaybackSpectrogramModel.chunk * pps
+                            guard x < size.width, x + w > 0 else { continue }
+                            ctx.draw(Image(decorative: img, scale: 1).resizable().interpolation(.medium),
+                                     in: CGRect(x: x, y: 0, width: w, height: size.height))
+                        }
+                    }
+                    .onChange(of: Int(t)) { _, _ in spectro.ensure(url: url, time: t, duration: duration, dark: colorScheme == .dark) }
                 }
                 Rectangle().fill(Color.red.opacity(0.8)).frame(width: 1.5)
                 Button {
@@ -119,11 +148,11 @@ struct RecordingPlayerCard: View {
                 Text(blocked).font(.caption).foregroundStyle(.orange)
             }
         }
-        .onAppear { spectro.update(url: url, time: 0, dark: colorScheme == .dark) }
+        .onAppear { spectro.ensure(url: url, time: 0, duration: duration, dark: colorScheme == .dark) }
         .onChange(of: player.currentTime) { _, t in
-            if isCurrent { spectro.update(url: url, time: t, dark: colorScheme == .dark) }
+            if isCurrent { spectro.ensure(url: url, time: t, duration: duration, dark: colorScheme == .dark) }
         }
-        .onChange(of: colorScheme) { _, scheme in spectro.update(url: url, time: time, dark: scheme == .dark) }
+        .onChange(of: colorScheme) { _, scheme in spectro.ensure(url: url, time: time, duration: duration, dark: scheme == .dark) }
     }
 }
 
