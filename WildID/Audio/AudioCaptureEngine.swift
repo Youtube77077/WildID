@@ -71,11 +71,26 @@ final class AudioCaptureEngine: @unchecked Sendable {
         converter = (inputFormat == analysisFormat) ? nil : AVAudioConverter(from: inputFormat, to: analysisFormat)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
-            guard let self else { return }
-            self.processingQueue.async { self.handle(buffer) }
+            guard let self, let copy = Self.copy(buffer) else { return }
+            self.processingQueue.async { self.handle(copy) }
         }
         engine.prepare()
         try engine.start()
+    }
+
+    /// The engine may reuse its tap buffer, so take a private copy before leaving the tap.
+    private static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let out = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else { return nil }
+        out.frameLength = buffer.frameLength
+        let channels = Int(buffer.format.channelCount)
+        if let src = buffer.floatChannelData, let dst = out.floatChannelData {
+            for c in 0..<channels { dst[c].update(from: src[c], count: Int(buffer.frameLength)) }
+        } else if let src = buffer.int16ChannelData, let dst = out.int16ChannelData {
+            for c in 0..<channels { dst[c].update(from: src[c], count: Int(buffer.frameLength)) }
+        } else {
+            return nil
+        }
+        return out
     }
 
     private func handle(_ buffer: AVAudioPCMBuffer) {

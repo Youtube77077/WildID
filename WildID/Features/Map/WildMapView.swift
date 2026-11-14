@@ -129,6 +129,11 @@ struct WildMapView: View {
     }
 
     private func initialFocus() {
+        if let c = router.mapFocus {
+            focus = MapFocusRequest(token: UUID(), region: MKCoordinateRegion(center: c, latitudinalMeters: 3000, longitudinalMeters: 3000))
+            router.mapFocus = nil
+            return
+        }
         guard focus == nil else { return }
         if let c = filteredCatches.first?.coordinate ?? location.activePlace?.coordinate {
             focus = MapFocusRequest(token: UUID(), region: MKCoordinateRegion(center: c, latitudinalMeters: 20_000, longitudinalMeters: 20_000))
