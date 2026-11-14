@@ -317,7 +317,8 @@ final class GameRulesTests: XCTestCase {
     /// Catches without a live GPS fix are locked as Common; catches from before locked tiers
     /// existed keep the tier their first catch was given (and its XP).
     func testCatchTierLocking() async throws {
-        let (m, _) = try makeManager()
+        let (m, container) = try makeManager()
+        defer { withExtendedLifetime(container) {} }
         let owl = SpeciesRef(scientificName: "Tyto alba", commonName: "Barn Owl", group: .birds)
         m.addCatch(owl, method: .photo, confidence: nil, place: nil, coordinate: nil, announce: false)
         let entry = try XCTUnwrap(m.entry(for: "Tyto alba"))

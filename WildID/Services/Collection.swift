@@ -149,8 +149,12 @@ final class CollectionManager {
     /// Bumped on every change so lightweight views can refresh derived stats.
     var revision = 0
 
+    /// Held so background work (scoring, pop-ups) never touches a released store.
+    private let container: ModelContainer
+
     init(context: ModelContext, toasts: ToastCenter, settings: AppSettings) {
         self.context = context
+        self.container = context.container
         self.toasts = toasts
         self.settings = settings
     }
