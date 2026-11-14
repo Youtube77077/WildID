@@ -184,7 +184,7 @@ struct WildIndexCard: View {
                     }
                 }
                 .frame(height: 150)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity)
                 .clipped()
                 HStack {
                     Image(systemName: entry.group.symbol)
@@ -228,7 +228,7 @@ struct UndiscoveredCard: View {
         VStack(spacing: 6) {
             RemoteImage(url: taxon.thumbURL, maxPixel: 240, placeholderSymbol: taxon.group.symbol, tint: taxon.group.tint)
                 .frame(height: 96)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity)
                 .grayscale(1)
                 .brightness(-0.35)
                 .contrast(0.6)

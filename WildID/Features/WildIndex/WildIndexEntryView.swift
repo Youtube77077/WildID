@@ -31,7 +31,7 @@ struct WildIndexEntryView: View {
                 RemoteImage(url: entry.photoURL.flatMap { URL(string: $0.absoluteString.replacingOccurrences(of: "/medium.", with: "/large.")) },
                             maxPixel: 1200, placeholderSymbol: entry.group.symbol, tint: entry.group.tint)
                     .frame(height: 280)
-                    .frame(maxWidth: .infinity)
+                    .frame(minWidth: 0, maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 6) {

@@ -145,10 +145,15 @@ struct HomeView: View {
         let taxon = daily.animal
         return NavigationLink(value: taxon.map(SpeciesRef.init(taxon:)) ?? SpeciesRef(scientificName: "Animalia", commonName: "Animals", group: .other, isGroupLevel: true)) {
             ZStack(alignment: .bottomLeading) {
-                RemoteImage(url: taxon?.default_photo?.sized("large"), maxPixel: 1400,
-                            placeholderSymbol: taxon?.group.symbol ?? "pawprint.fill", tint: taxon?.group.tint ?? Theme.fern)
-                    .frame(height: 360)
+                // A fill-scaled photo reports its natural width; laying it over a fixed-size
+                // frame keeps landscape photos from widening the whole page.
+                Color.clear
                     .frame(maxWidth: .infinity)
+                    .frame(height: 360)
+                    .overlay {
+                        RemoteImage(url: taxon?.default_photo?.sized("large"), maxPixel: 1400,
+                                    placeholderSymbol: taxon?.group.symbol ?? "pawprint.fill", tint: taxon?.group.tint ?? Theme.fern)
+                    }
                     .clipped()
                 LinearGradient(colors: [.clear, .clear, .black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 6) {
