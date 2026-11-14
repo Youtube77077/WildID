@@ -1,0 +1,41 @@
+{
+  "name": "WildID",
+  "identifier": "io.github.youtube77077.wildid.source",
+  "subtitle": "Updates for WildID",
+  "website": "https://github.com/Youtube77077/WildID",
+  "apps": [
+    {
+      "name": "WildID",
+      "bundleIdentifier": "io.github.youtube77077.wildid",
+      "developerName": "WildID",
+      "subtitle": "Discover the entire animal kingdom",
+      "localizedDescription": "Identify animals by sound and photo, collect them in your Wild Index, raise them as Wildlings, play mini-games and explore the wildlife around you.",
+      "iconURL": "https://raw.githubusercontent.com/Youtube77077/WildID/claude/festive-tesla-rhpbyd/WildID/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "tintColor": "1F6E5E",
+      "version": "1.0.2",
+      "versionDate": "2026-11-14",
+      "downloadURL": "https://raw.githubusercontent.com/Youtube77077/WildID/claude/festive-tesla-rhpbyd/dist/WildID.ipa",
+      "size": 43870114,
+      "versionDescription": "WildID 1.0.2 (build 14)",
+      "versions": [
+        {
+          "version": "1.0.2",
+          "buildVersion": "14",
+          "date": "2026-11-14",
+          "downloadURL": "https://raw.githubusercontent.com/Youtube77077/WildID/claude/festive-tesla-rhpbyd/dist/WildID.ipa",
+          "size": 43870114,
+          "localizedDescription": "WildID 1.0.2 (build 14)",
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSMicrophoneUsageDescription": "Sound ID listens for animal sounds.",
+          "NSLocationWhenInUseUsageDescription": "Shows animals near you and places your catches on the map."
+        }
+      }
+    }
+  ],
+  "news": []
+}
