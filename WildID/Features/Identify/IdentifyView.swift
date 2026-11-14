@@ -10,7 +10,10 @@ struct IdentifyView: View {
     /// The hub is a sheet; close it first so the next screen can be presented from the root.
     private func open(_ action: @escaping @MainActor () -> Void) {
         dismiss()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { action() }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            action()
+        }
     }
 
     var body: some View {
