@@ -5,38 +5,45 @@ struct IdentifyView: View {
     @Environment(Router.self) private var router
     @Environment(SoundIDSession.self) private var sound
     @Query(sort: \SavedRecording.startedAt, order: .reverse) private var recordings: [SavedRecording]
+    @Environment(\.dismiss) private var dismiss
+
+    /// The hub is a sheet; close it first so the next screen can be presented from the root.
+    private func open(_ action: @escaping @MainActor () -> Void) {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { action() }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Identify").font(.wildLargeTitle).padding(.top, 8)
-                    Text("Three ways to put a name to an animal.")
+                    Text("Identify").font(.wildLargeTitle).padding(.top, 4)
+                    Text("Three ways to put a name to any animal — mammals, birds, reptiles, frogs, insects and more.")
                         .font(.title3)
                         .foregroundStyle(Theme.secondaryText)
 
-                    Button { router.showSoundID = true } label: {
+                    Button { open { router.showSoundID = true } } label: {
                         IdentifyCard(symbol: "mic.fill", title: "Sound ID",
                                      subtitle: BirdNETClassifier.isAvailable
-                                        ? "Listen live and name the animals calling around you — 6,500+ sound classes, mostly birds plus some frogs, insects and mammals, and everyday animal sounds."
+                                        ? "Listen live and name the animals calling around you. Tuned to pick up quiet, distant sounds through wind and background noise. Knows 6,500+ animal voices (birds, frogs, crickets, cicadas and some mammals) plus everyday animal sounds like dogs, cats and livestock."
                                         : "Listen live for animal sounds. The species model is missing from this build — see README.",
                                      prominent: true, badge: sound.isActive ? "Listening…" : nil)
                     }
                     .buttonStyle(PressableStyle())
 
-                    Button { router.showPhotoID = true } label: {
+                    Button { open { router.showPhotoID = true } } label: {
                         IdentifyCard(symbol: "camera.fill", title: "Photo ID",
                                      subtitle: "Take or choose a photo. WildID recognises the kind of animal on-device, then shows the matching species recorded near you to compare.")
                     }
                     .buttonStyle(PressableStyle())
 
-                    Button { router.showGuidedID = true } label: {
+                    Button { open { router.showGuidedID = true } } label: {
                         IdentifyCard(symbol: "list.bullet.clipboard", title: "Step by Step",
                                      subtitle: "No photo or sound? Answer a few questions about what you saw and where.")
                     }
                     .buttonStyle(PressableStyle())
 
-                    Button { router.showRecordings = true } label: {
+                    Button { open { router.showRecordings = true } } label: {
                         HStack {
                             Image(systemName: "waveform")
                             VStack(alignment: .leading, spacing: 2) {
@@ -62,7 +69,7 @@ struct IdentifyView: View {
                 .padding(.horizontal, Theme.gutter)
                 .padding(.bottom, 40)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
 }

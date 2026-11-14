@@ -79,7 +79,7 @@ enum Rarity: String, Codable, CaseIterable, Comparable {
     static let explanation = "Rarity tiers come from how often people record the species within 50 km of where you found it (iNaturalist research-grade observations): Common ≥ 500, Uncommon 100–499, Rare 20–99, Epic 5–19, Legendary < 5. Threatened species are raised (Vulnerable → at least Rare, Endangered → at least Epic, Critically Endangered → Legendary). It describes local scarcity, not the world population."
 }
 
-/// Experience rules for the Pet Index. Designed so it can't be farmed:
+/// Experience rules for the Wildlings. Designed so it can't be farmed:
 /// - the first catch of a species gives the most XP (more for rarer tiers);
 /// - repeat catches only earn XP once per hour per species, at most 3 times per day;
 /// - unverified methods earn less (manual sightings a quarter, Step by Step half);
@@ -174,7 +174,7 @@ final class WildIndexEntry {
     var firstCaughtAt: Date
     var lastCaughtAt: Date
     var isFavorite: Bool = false
-    /// Pet Index: optional nickname and experience points.
+    /// Wildlings: optional nickname and experience points.
     var nickname: String? = nil
     var xp: Int = 0
 
@@ -199,7 +199,7 @@ final class WildIndexEntry {
     var group: AnimalGroup { AnimalGroup(rawValue: groupRaw) ?? .other }
     var photoURL: URL? { photoURLString.flatMap(URL.init(string:)) }
     var rarity: Rarity? { rarityRaw.flatMap { Rarity(storedValue: $0) } }
-    /// Tier used by the Pet Index (Common until local data is known).
+    /// Tier used by the Wildlings (Common until local data is known).
     var tier: Rarity { rarity ?? .common }
     var level: Int { XPRules.level(forXP: xp) }
     var displayName: String { (nickname?.isEmpty == false) ? nickname! : commonName }

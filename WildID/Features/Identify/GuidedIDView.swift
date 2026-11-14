@@ -24,8 +24,8 @@ struct GuideOption: Identifiable {
 
 enum GuideTree {
     static let root: GuideNode = .question("What kind of animal did you see?", [
+        GuideOption("Mammal", "pawprint.fill", detail: "Fur, e.g. fox, deer, squirrel, bat", mammals),
         GuideOption("Bird", "bird.fill", birds),
-        GuideOption("Mammal", "pawprint.fill", mammals),
         GuideOption("Insect or bug", "ant.fill", detail: "Six legs, often wings", insects),
         GuideOption("Spider or other many-legged animal", "ladybug.fill", detail: "Eight legs or more", manyLegs),
         GuideOption("Reptile", "lizard.fill", reptiles),

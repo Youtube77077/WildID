@@ -3,7 +3,8 @@ import SwiftUI
 /// Major animal groups used for filtering, icons and achievements.
 /// `taxonIDs` are iNaturalist taxon identifiers (stable, used across its API).
 enum AnimalGroup: String, CaseIterable, Identifiable, Codable {
-    case birds, mammals, reptiles, amphibians, fish, insects, arachnids, molluscs, crustaceans, other
+    // Declaration order is the display order everywhere (filters, pickers): mammals first.
+    case mammals, birds, reptiles, amphibians, fish, insects, arachnids, molluscs, crustaceans, other
 
     var id: String { rawValue }
 
@@ -89,7 +90,7 @@ enum AnimalGroup: String, CaseIterable, Identifiable, Codable {
     static let animaliaID = 1
 
     /// Groups in the order they are checked against a taxon's ancestry.
-    static let classificationOrder: [AnimalGroup] = [.birds, .mammals, .reptiles, .amphibians, .fish, .insects, .arachnids, .molluscs, .crustaceans]
+    static let classificationOrder: [AnimalGroup] = [.mammals, .birds, .reptiles, .amphibians, .fish, .insects, .arachnids, .molluscs, .crustaceans]
 
     /// Determines the group from a taxon's ancestor ids (including its own id).
     static func from(ancestorIDs: [Int], iconicName: String? = nil) -> AnimalGroup {

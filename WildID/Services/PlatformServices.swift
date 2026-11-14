@@ -155,28 +155,40 @@ final class Connectivity {
 // MARK: - Settings
 
 enum DetectionSensitivity: String, CaseIterable, Identifiable, Codable {
-    case conservative, balanced, sensitive
+    case conservative, balanced, sensitive, maximum
     var id: String { rawValue }
     var title: String {
         switch self {
         case .conservative: "Conservative"
         case .balanced: "Balanced"
         case .sensitive: "Sensitive"
+        case .maximum: "Maximum"
         }
     }
     var detail: String {
         switch self {
-        case .conservative: "Fewer, very confident detections"
-        case .balanced: "Recommended for most places"
-        case .sensitive: "More detections, more false alarms"
+        case .conservative: "Only loud, clear calls"
+        case .balanced: "Fewer suggestions, very few mistakes"
+        case .sensitive: "Recommended: picks up quiet and distant animals"
+        case .maximum: "Catches the faintest sounds; check suggestions more carefully"
         }
     }
     /// Minimum classifier probability for a species to be shown.
     var threshold: Float {
         switch self {
-        case .conservative: 0.70
-        case .balanced: 0.50
-        case .sensitive: 0.30
+        case .conservative: 0.60
+        case .balanced: 0.40
+        case .sensitive: 0.25
+        case .maximum: 0.15
+        }
+    }
+    /// Scales the minimum confidence of Apple's sound classifier classes.
+    var appleConfidenceScale: Double {
+        switch self {
+        case .conservative: 1.15
+        case .balanced: 1.0
+        case .sensitive: 0.85
+        case .maximum: 0.7
         }
     }
 }
@@ -192,29 +204,33 @@ final class AppSettings {
     var showScientificNames: Bool { didSet { save() } }
     var useLocationFilter: Bool { didSet { save() } }
     var detectNonBirdSounds: Bool { didSet { save() } }
+    /// Second, enhanced classification pass (wind filter + automatic gain) for faint sounds.
+    var enhanceFaintSounds: Bool { didSet { save() } }
     var hasOnboarded: Bool { didSet { save() } }
 
     private let defaults = UserDefaults.standard
 
     init() {
-        sensitivity = DetectionSensitivity(rawValue: defaults.string(forKey: "sensitivity") ?? "") ?? .balanced
+        sensitivity = DetectionSensitivity(rawValue: defaults.string(forKey: "sensitivity.v2") ?? "") ?? .sensitive
         autoAddToWildIndex = defaults.object(forKey: "autoAdd") as? Bool ?? true
         newAnimalPopups = defaults.object(forKey: "popups") as? Bool ?? true
         haptics = defaults.object(forKey: "haptics") as? Bool ?? true
         showScientificNames = defaults.object(forKey: "sciNames") as? Bool ?? true
         useLocationFilter = defaults.object(forKey: "locFilter") as? Bool ?? true
         detectNonBirdSounds = defaults.object(forKey: "nonBird") as? Bool ?? true
+        enhanceFaintSounds = defaults.object(forKey: "enhanceFaint") as? Bool ?? true
         hasOnboarded = defaults.bool(forKey: "onboarded")
     }
 
     private func save() {
-        defaults.set(sensitivity.rawValue, forKey: "sensitivity")
+        defaults.set(sensitivity.rawValue, forKey: "sensitivity.v2")
         defaults.set(autoAddToWildIndex, forKey: "autoAdd")
         defaults.set(newAnimalPopups, forKey: "popups")
         defaults.set(haptics, forKey: "haptics")
         defaults.set(showScientificNames, forKey: "sciNames")
         defaults.set(useLocationFilter, forKey: "locFilter")
         defaults.set(detectNonBirdSounds, forKey: "nonBird")
+        defaults.set(enhanceFaintSounds, forKey: "enhanceFaint")
         defaults.set(hasOnboarded, forKey: "onboarded")
     }
 }

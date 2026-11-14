@@ -19,15 +19,12 @@ struct RootView: View {
                 WildMapView()
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(AppTab.map)
-                IdentifyView()
-                    .tabItem { Label("Identify", systemImage: "waveform.circle.fill") }
-                    .tag(AppTab.identify)
                 WildIndexView()
                     .tabItem { Label("Wild Index", systemImage: "photo.stack.fill") }
                     .tag(AppTab.wildIndex)
-                PetsView()
-                    .tabItem { Label("Pets", systemImage: "pawprint.fill") }
-                    .tag(AppTab.pets)
+                WildlingsView()
+                    .tabItem { Label("Wildlings", systemImage: "sparkles") }
+                    .tag(AppTab.wildlings)
             }
 
             if let event = toasts.current, !router.showSoundID, !router.showPhotoID, !router.showGuidedID {
@@ -69,6 +66,7 @@ struct RootView: View {
         .fullScreenCover(isPresented: $router.showSoundID) {
             SoundIDView()
         }
+        .sheet(isPresented: $router.showIdentify) { IdentifyView() }
         .sheet(isPresented: $router.showPhotoID) { PhotoIDView() }
         .sheet(isPresented: $router.showGuidedID) { GuidedIDView() }
         .sheet(isPresented: $router.showSettings) { SettingsView() }
@@ -95,19 +93,28 @@ struct RootView: View {
             guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
             return args[i + 1]
         }
-        if args.contains("-wildid-skip-onboarding") { settings.hasOnboarded = true }
+        if args.contains("-wildid-skip-onboarding") {
+            settings.hasOnboarded = true
+            UserDefaults.standard.set(true, forKey: WildlingsView.guideSeenKey)
+        }
         switch value("-wildid-tab") {
-        case "identify": router.tab = .identify
         case "map": router.tab = .map
         case "index": router.tab = .wildIndex
         case "explore": router.tab = .home; router.homePath.append(ExploreRoute())
-        case "pets": router.tab = .pets
+        case "wildlings", "pets": router.tab = .wildlings
         default: break
         }
         if let name = value("-wildid-pet") {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 9_000_000_000)   // let demo data resolve first
                 router.presentedPetKey = name.lowercased()
+            }
+        }
+        if let name = value("-wildid-entry") {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 9_000_000_000)
+                router.tab = .home
+                router.homePath.append(WildIndexEntryRoute(key: name.lowercased()))
             }
         }
         if let name = value("-wildid-species") {
@@ -118,6 +125,10 @@ struct RootView: View {
         case "photo": router.showPhotoID = true
         case "guided": router.showGuidedID = true
         case "settings": router.showSettings = true
+        case "identify": router.showIdentify = true
+        case "recordings": router.showRecordings = true
+        case "wildlings-guide": router.tab = .wildlings; router.showWildlingsGuide = true
+        case "achievements": router.tab = .wildIndex; router.showAchievements = true
         default: break
         }
     }

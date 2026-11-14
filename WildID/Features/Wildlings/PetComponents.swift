@@ -50,7 +50,7 @@ struct TierBadge: View {
 }
 
 extension AnimalGroup {
-    /// Habitat-themed backdrop for the Pet Index (sky, pond, desert, ocean…).
+    /// Habitat-themed backdrop for the Wildlings tab (sky, pond, desert, ocean…).
     var habitat: LinearGradient {
         let c: [Color] = switch self {
         case .birds: [Color(red: 0.55, green: 0.80, blue: 0.97), Color(red: 0.80, green: 0.93, blue: 0.82), Color(red: 0.45, green: 0.72, blue: 0.36)]
@@ -70,7 +70,7 @@ extension AnimalGroup {
 // MARK: - 3D models
 
 /// Downloads optional 3D models (USDZ) published in the repository's `models3d/` folder.
-/// Until a species has a model, the Pet Index shows a placeholder.
+/// Until a species has a model, the Wildlings tab shows a placeholder.
 @MainActor
 @Observable
 final class Model3DStore {

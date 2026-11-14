@@ -54,13 +54,14 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
+                    Toggle("Boost faint & distant sounds", isOn: $settings.enhanceFaintSounds)
                     Toggle("Filter by location & season", isOn: $settings.useLocationFilter)
-                    Toggle("Detect non-bird animal sounds", isOn: $settings.detectNonBirdSounds)
+                    Toggle("Detect everyday animal sounds (dogs, cats, livestock…)", isOn: $settings.detectNonBirdSounds)
                     Toggle("Add detections to Wild Index automatically", isOn: $settings.autoAddToWildIndex)
                     Toggle("“New Animal” pop-ups", isOn: $settings.newAnimalPopups)
                     Toggle("Haptics", isOn: $settings.haptics)
                 } header: { Text("Sound ID") } footer: {
-                    Text("Species are auto-added when heard twice, or once with high confidence. Non-bird detection uses Apple's built-in sound classifier and reports broad groups (e.g. “Frogs & toads”) unless the species is certain (e.g. domestic animals). Recordings can last up to 3 hours.")
+                    Text("Boost runs a second check on every moment with wind and rumble filtered out and quiet sounds amplified, so a distant call can still be named. The location filter keeps sensitive settings from suggesting animals that don't live here. Species are auto-added when heard twice, or once with high confidence. Everyday animal sounds use Apple's built-in sound classifier and reports broad groups (e.g. “Frogs & toads”) unless the species is certain (e.g. domestic animals). Recordings can last up to 3 hours.")
                 }
 
                 Section {

@@ -73,12 +73,16 @@ final class AppleSoundClassifier: NSObject, SNResultsObserving, @unchecked Senda
     private let queue = DispatchQueue(label: "wildid.soundanalysis")
     private(set) var knownIdentifiers: Set<String> = []
 
-    init(format: AVAudioFormat) throws {
+    /// Multiplies every class's minimum confidence (lower = more sensitive).
+    private let confidenceScale: Double
+
+    init(format: AVAudioFormat, confidenceScale: Double = 1) throws {
         analyzer = SNAudioStreamAnalyzer(format: format)
+        self.confidenceScale = confidenceScale
         super.init()
         let request = try SNClassifySoundRequest(classifierIdentifier: .version1)
         request.windowDuration = CMTime(seconds: 1.5, preferredTimescale: 48_000)
-        request.overlapFactor = 0.5
+        request.overlapFactor = 0.75
         knownIdentifiers = Set(request.knownClassifications)
         try analyzer.add(request, withObserver: self)
     }
@@ -96,8 +100,8 @@ final class AppleSoundClassifier: NSObject, SNResultsObserving, @unchecked Senda
     func request(_ request: SNRequest, didProduce result: SNResult) {
         guard let result = result as? SNClassificationResult else { return }
         let time = result.timeRange.start.seconds
-        for c in result.classifications.prefix(5) {
-            guard let mapping = Self.mappings[c.identifier], c.confidence >= mapping.minConfidence else { continue }
+        for c in result.classifications.prefix(8) {
+            guard let mapping = Self.mappings[c.identifier], c.confidence >= mapping.minConfidence * confidenceScale else { continue }
             onDetection?(Detection(identifier: c.identifier, mapping: mapping, confidence: c.confidence, time: time))
         }
     }

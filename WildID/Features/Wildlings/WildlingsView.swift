@@ -1,10 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// The Pet Index: the same animals as the Wild Index, shown as companions you level up.
-struct PetsView: View {
+/// Wildlings: the same animals as the Wild Index, shown as companions you level up.
+struct WildlingsView: View {
+    static let guideSeenKey = "wildlingsGuideSeen"
     @Query(sort: \WildIndexEntry.lastCaughtAt, order: .reverse) private var entries: [WildIndexEntry]
     @Environment(Router.self) private var router
+    @AppStorage(WildlingsView.guideSeenKey) private var guideSeen = false
 
     enum Sort: String, CaseIterable, Identifiable {
         case level = "Highest level", recent = "Recently caught", tier = "Rarity", name = "Name"
@@ -13,7 +15,6 @@ struct PetsView: View {
 
     @State private var sort: Sort = .level
     @State private var tierFilter: Rarity? = nil
-    @State private var showRules = false
 
     private var totalXP: Int { entries.reduce(0) { $0 + $1.xp } }
 
@@ -33,12 +34,13 @@ struct PetsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     explorerCard
+                    guideCard
                     tierStrip
                     if entries.isEmpty {
                         VStack(spacing: 14) {
-                            ModelPlaceholder(group: .birds, size: 160)
-                            Text("No companions yet").font(.system(size: 22, weight: .heavy, design: .rounded))
-                            Text("Every animal you catch with Sound ID, Photo ID or Step by Step joins your Pet Index. Catch it again later to earn XP and level it up.")
+                            ModelPlaceholder(group: .mammals, size: 160)
+                            Text("No Wildlings yet").font(.system(size: 22, weight: .heavy, design: .rounded))
+                            Text("Every animal you catch with Sound ID, Photo ID or Step by Step hatches a Wildling. Catch it again later to earn XP and level it up.")
                                 .font(.subheadline).foregroundStyle(Theme.secondaryText).multilineTextAlignment(.center)
                             Button { router.showSoundID = true } label: { Label("Start Sound ID", systemImage: "waveform") }
                                 .buttonStyle(PrimaryButtonStyle())
@@ -57,19 +59,43 @@ struct PetsView: View {
                 .padding(.bottom, 40)
             }
             .background(Theme.groupedBackground)
-            .navigationTitle("Pet Index")
+            .navigationTitle("Wildlings")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Button { showRules = true } label: { Image(systemName: "questionmark.circle") }
-                        .accessibilityLabel("How XP works")
+                    Button { router.showWildlingsGuide = true } label: { Image(systemName: "questionmark.circle") }
+                        .accessibilityLabel("How Wildlings work")
                     Menu {
                         Picker("Sort", selection: $sort) { ForEach(Sort.allCases) { Text($0.rawValue).tag($0) } }
                     } label: { Image(systemName: "arrow.up.arrow.down") }
                 }
             }
             .wildDestinations()
-            .sheet(isPresented: $showRules) { XPRulesView() }
+            .sheet(isPresented: Binding(get: { router.showWildlingsGuide }, set: { router.showWildlingsGuide = $0 }),
+                   onDismiss: { guideSeen = true }) { WildlingsGuideView() }
+            .onAppear { if !guideSeen { router.showWildlingsGuide = true } }
         }
+    }
+
+    private var guideCard: some View {
+        Button { router.showWildlingsGuide = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Theme.mossDeep)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.sunlight, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("How Wildlings work").font(.system(size: 16, weight: .heavy, design: .rounded)).foregroundStyle(.primary)
+                    Text("Catch real animals → they become Wildlings → catch them again to level up.")
+                        .font(.caption).foregroundStyle(Theme.secondaryText).multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.tertiaryText)
+            }
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(PressableStyle())
     }
 
     private var explorerCard: some View {
@@ -90,7 +116,7 @@ struct PetsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Explorer").font(.system(size: 13, weight: .heavy, design: .rounded)).foregroundStyle(.white.opacity(0.8)).textCase(.uppercase)
                 Text("\(totalXP.formatted()) XP").font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundStyle(.white)
-                Text("\(entries.count) companions · \(max(0, lvl.next - totalXP).formatted()) XP to level \(lvl.level + 1)")
+                Text("\(entries.count) Wildlings · \(max(0, lvl.next - totalXP).formatted()) XP to level \(lvl.level + 1)")
                     .font(.footnote).foregroundStyle(.white.opacity(0.85))
             }
             Spacer(minLength: 0)
@@ -148,7 +174,7 @@ struct PetDetailView: View {
 
     var body: some View {
         if let e = results.first { content(e) } else {
-            EmptyStateView(symbol: "pawprint", title: "Not in your Pet Index", message: "This animal was removed.")
+            EmptyStateView(symbol: "pawprint", title: "Not one of your Wildlings", message: "This animal was removed.")
         }
     }
 
@@ -266,7 +292,7 @@ struct PetDetailView: View {
                         }
                         .buttonStyle(SecondaryButtonStyle())
                     }
-                    Text("Catch \(e.commonName) again (at least an hour apart, up to 3 times a day) to earn more XP. There are no battles — your companions only grow by exploring.")
+                    Text("Catch \(e.commonName) again (at least an hour apart, up to 3 times a day) to earn more XP. There are no battles — Wildlings only grow when you explore.")
                         .font(.caption).foregroundStyle(Theme.secondaryText).multilineTextAlignment(.center)
                 }
                 .padding(20)
@@ -315,34 +341,71 @@ struct LevelArc: Shape {
     }
 }
 
-struct XPRulesView: View {
+/// Full explanation of Wildlings, opened from the Wildlings tab (and shown once on first visit).
+struct WildlingsGuideView: View {
     @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Earning XP") {
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Your real catches, as companions")
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        Text("The Wild Index is your field journal: real photos, sounds and places. Wildlings are the same animals as friendly companions you raise. Every animal you catch automatically becomes a Wildling. You never catch Wildlings separately.")
+                            .font(.subheadline).foregroundStyle(Theme.secondaryText)
+                    }
+                    .padding(.vertical, 6)
+                }
+                Section("How it works") {
+                    step(1, "Find a real animal", "Use Sound ID, Photo ID or Step by Step. When WildID names an animal you haven't caught yet, it goes into your Wild Index.", "binoculars.fill")
+                    step(2, "It hatches as a Wildling", "The same animal appears here at level 1 with first-catch XP. Rarer animals start with more.", "sparkles")
+                    step(3, "Catch it again to level up", "Hearing or seeing the same species again later gives repeat XP. Levels go up to \(XPRules.maxLevel).", "arrow.up.circle.fill")
+                    step(4, "Make it yours", "Tap its name to give it a nickname. Its real species name always stays in the Wild Index.", "pencil")
+                }
+                Section("Rarity, from where you are") {
                     ForEach(Rarity.allCases, id: \.self) { t in
                         HStack {
                             TierBadge(tier: t)
                             Spacer()
-                            Text("first catch +\(XPRules.firstCatchXP(t)) · again +\(XPRules.repeatXP(t))").font(.footnote.monospacedDigit())
+                            Text("first +\(XPRules.firstCatchXP(t)) XP · again +\(XPRules.repeatXP(t))").font(.footnote.monospacedDigit())
                         }
                     }
+                    Text(Rarity.explanation).font(.footnote).foregroundStyle(Theme.secondaryText)
                 }
                 Section("Fair play") {
-                    Label("Repeat catches earn XP at most once per hour per animal, and 3 times a day.", systemImage: "clock")
-                    Label("Sound ID and Photo ID earn full XP. Step by Step earns half, manual sightings a quarter.", systemImage: "checkmark.seal")
-                    Label("Each animal is added at most once per Sound ID session.", systemImage: "waveform")
-                    Label("No battles and nothing to buy — companions grow only by exploring.", systemImage: "leaf")
+                    Label("Repeat catches of the same animal earn XP at most once an hour, and 3 times a day.", systemImage: "clock")
+                    Label("Sound ID and Photo ID earn full XP. Step by Step earns half and manual sightings a quarter, because they're easier to fake.", systemImage: "checkmark.seal")
+                    Label("Each animal counts only once per Sound ID session, so leaving the microphone on doesn't farm XP.", systemImage: "waveform")
                 }
-                Section("Rarity") { Text(Rarity.explanation).font(.footnote) }
                 Section("Levels") {
-                    Text("Level 2 at 75 XP, level 5 at 750 XP, level 10 at 3,375 XP, up to level \(XPRules.maxLevel). Your Explorer level adds up the XP of all your companions.")
+                    Text("Level 2 at 75 XP, level 5 at 750 XP, level 10 at 3,375 XP, up to level \(XPRules.maxLevel). Your Explorer level adds up the XP of all your Wildlings.")
                         .font(.footnote)
                 }
+                Section("Good to know") {
+                    Label("No battles, no trading, nothing to buy. Wildlings only grow when you go outside and find animals.", systemImage: "leaf.fill")
+                    Label("3D companions are on the way. Until an animal's model is added it shows a placeholder card.", systemImage: "cube.transparent")
+                    Label("Wildlings are saved on this iPhone and come back if you delete and reinstall WildID.", systemImage: "lock.iphone")
+                }
             }
-            .navigationTitle("How XP works")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .navigationTitle("How Wildlings work")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Got it") { dismiss() } } }
         }
+    }
+
+    private func step(_ n: Int, _ title: String, _ text: String, _ symbol: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle().fill(Theme.moss.gradient)
+                Image(systemName: symbol).font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+            }
+            .frame(width: 38, height: 38)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(n). \(title)").font(.system(size: 16, weight: .bold, design: .rounded))
+                Text(text).font(.subheadline).foregroundStyle(Theme.secondaryText)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }

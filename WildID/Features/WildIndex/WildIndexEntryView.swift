@@ -78,7 +78,7 @@ struct WildIndexEntryView: View {
                 NavigationLink(value: PetRoute(key: entry.key)) {
                     HStack {
                         Image(systemName: "pawprint.fill")
-                        Text("Pet Index · Lv \(entry.level) · \(entry.xp) XP")
+                        Text("Wildling · Lv \(entry.level) · \(entry.xp) XP")
                         Spacer()
                         Image(systemName: "chevron.right")
                     }

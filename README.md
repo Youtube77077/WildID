@@ -2,18 +2,33 @@
 
 **Discover the entire animal kingdom.** WildID is a native iPhone app (Swift / SwiftUI) for identifying, collecting and exploring animals — inspired by the interaction patterns of Merlin Bird ID, extended from birds to all animals.
 
-- **Sound ID** – live microphone identification with a real scrolling spectrogram (FFT), detections appearing as they happen, a yellow highlight for newly heard species, sessions up to **3 hours** that keep running with the screen locked, and **Save** to keep the whole recording (size shown in MB/GB, deletable).
+Tabs: **Home · Map · Wild Index · Wildlings**. Identification (Sound ID, Photo ID, Step by Step and saved sessions) opens from Home, from the Listen/Photo/Step tiles or the ✦🔍 button in the header.
+
+- **Sound ID** – live microphone identification, tuned to be **as sensitive as possible**: every second a 3 s window is classified twice, once untouched and once with wind/rumble filtered out (250 Hz high-pass) and quiet sounds amplified up to +36 dB, so a distant call or a bird flying over can be named through background noise. The location/season filter keeps the sensitive default from suggesting animals that don't live where you are. It also has a real scrolling spectrogram (FFT), detections appearing as they happen, a yellow highlight for newly heard species, sessions up to **3 hours** that keep running with the screen locked, and **Save** to keep the whole recording (size shown in MB/GB, deletable).
 - **Wild Index** – your Pokémon-style collection: one card per species, a journal of every catch (date, place, method, confidence, your photo, the sound clip you caught), rarity, achievements, and "yet to catch nearby" silhouettes. Detections are added automatically and a small **New Animal** pop-up slides in without interrupting recording.
 - **Map** – Apple Maps (MapKit) with your catches as photo pins (clustered), recent community sightings, an all-observations layer, species ranges and satellite view.
 - **Explore** – animals recorded near you this season (or anywhere you pick on the map), plus a worldwide search across every animal on iNaturalist.
 - **Species pages** – photo gallery, sounds (Xeno-canto + iNaturalist) with recordist and license, weekly seasonality near you, range map vs. occurrence records (kept separate), size/mass/lifespan (Wikidata), description/habitat/diet/behaviour/reproduction/conservation (Wikipedia), full taxonomy, conservation status, similar species, sources.
-- **Pet Index** – every animal you catch also becomes a companion: XP, levels 1–50, rarity tiers from **Common to Legendary** (based on how rarely it's recorded where you found it, boosted for threatened species), nicknames, favourites, a game-style card and detail page, and a slot for a 3D model. No battles, nothing to buy, and XP can't be farmed (see below).
+- **Wildlings** – every animal you catch also becomes a companion (with a built-in "How Wildlings work" guide): XP, levels 1–50, rarity tiers from **Common to Legendary** (based on how rarely it's recorded where you found it, boosted for threatened species), nicknames, favourites, a game-style card and detail page, and a slot for a 3D model. No battles, nothing to buy, and XP can't be farmed (see below).
 - **Photo ID** (species-level for 965 birds and 1,021 insects when the photo models are built; group-level + local candidates for everything else) and **Step by Step** guided identification.
 - **Survives reinstall** – your catches, XP, levels and nicknames are kept in this iPhone's Keychain (device-only, no account, never uploaded). Delete the app, install it again on the same phone → everything is back. Anyone else's phone starts empty.
 
 > WildID needs an internet connection for species data, photos and maps. Your Wild Index, catches, clips, saved recordings and previously opened species pages stay available offline.
 
-### Pet Index rules (fair play)
+### Screenshots
+
+Captured automatically on the iOS Simulator by the *Simulator screenshots* workflow (sample catches, live data around Monnickendam).
+
+| | | |
+|---|---|---|
+| **Home**<br><img src="docs/screenshots/01-home.png" width="240"> | **Identify hub**<br><img src="docs/screenshots/02-identify.png" width="240"> | **Sound ID**<br><img src="docs/screenshots/03-sound-id.png" width="240"> |
+| **Photo ID**<br><img src="docs/screenshots/04-photo-id.png" width="240"> | **Step by Step**<br><img src="docs/screenshots/05-step-by-step.png" width="240"> | **Saved sessions**<br><img src="docs/screenshots/06-sound-sessions.png" width="240"> |
+| **Map · both**<br><img src="docs/screenshots/07-map-both.png" width="240"> | **Map · my catches**<br><img src="docs/screenshots/08-map-my-catches.png" width="240"> | **Map · community**<br><img src="docs/screenshots/09-map-community.png" width="240"> |
+| **Wild Index**<br><img src="docs/screenshots/10-wild-index.png" width="240"> | **Wild Index entry**<br><img src="docs/screenshots/11-wild-index-entry.png" width="240"> | **Achievements**<br><img src="docs/screenshots/12-achievements.png" width="240"> |
+| **Wildlings**<br><img src="docs/screenshots/13-wildlings.png" width="240"> | **Wildling detail**<br><img src="docs/screenshots/14-wildling-detail.png" width="240"> | **How Wildlings work**<br><img src="docs/screenshots/15-wildlings-guide.png" width="240"> |
+| **Explore**<br><img src="docs/screenshots/16-explore.png" width="240"> | **Species page**<br><img src="docs/screenshots/17-species.png" width="240"> | **Settings**<br><img src="docs/screenshots/18-settings.png" width="240"> |
+
+### Wildlings rules (fair play)
 
 | Tier | Local records within 50 km | First catch | Each repeat catch |
 |---|---|---|---|
@@ -23,11 +38,11 @@
 | Epic | 5–19 (or Endangered) | +400 XP | +70 XP |
 | Legendary | < 5 (or Critically Endangered) | +700 XP | +100 XP |
 
-Repeat catches earn XP at most once per hour per animal and 3 times a day; Step by Step earns half and manual sightings a quarter (they can't be verified); XP time is recorded when it is granted, so backdating a sighting doesn't help; Sound ID adds each species once per session. Levels: 2 at 75 XP, 5 at 750, 10 at 3,375 … up to 50. Your **Explorer level** sums all companions.
+Repeat catches earn XP at most once per hour per animal and 3 times a day; Step by Step earns half and manual sightings a quarter (they can't be verified); XP time is recorded when it is granted, so backdating a sighting doesn't help; Sound ID adds each species once per session. Levels: 2 at 75 XP, 5 at 750, 10 at 3,375 … up to 50. Your **Explorer level** sums all your Wildlings.
 
 ### 3D models
 
-The Pet Index loads a real 3D model (`models3d/<genus_species>.usdz`, listed in `models3d/index.json`) the moment one is published to this repo — no app update needed. Until then it shows a clean "3D model coming soon" placeholder (no low-quality auto-generated models).
+The Wildlings tab loads a real 3D model (`models3d/<genus_species>.usdz`, listed in `models3d/index.json`) the moment one is published to this repo — no app update needed. Until then it shows a clean "3D model coming soon" placeholder (no low-quality auto-generated models).
 
 ---
 
@@ -92,7 +107,7 @@ Search falls back to the GBIF backbone for named species iNaturalist doesn't hav
 
 | Feature | What it uses | Coverage |
 |---|---|---|
-| Sound ID – species | **BirdNET V2.4** acoustic model (Cornell Lab of Ornithology & TU Chemnitz) converted to Core ML, on-device, 3 s windows every 1.5 s | 6,522 classes: mostly birds worldwide, plus some frogs, insects and mammals |
+| Sound ID – species | **BirdNET V2.4** acoustic model (Cornell Lab of Ornithology & TU Chemnitz) converted to Core ML, on-device, 3 s windows every 1 s, each run raw **and** enhanced (high-pass + auto-gain), stronger score wins | 6,522 classes: mostly birds worldwide, plus some frogs, insects and mammals |
 | Sound ID – location filter | **BirdNET meta-model**: species expected at your latitude/longitude in the current week (48-week calendar) | Same classes |
 | Sound ID – other animals | **Apple SoundAnalysis** built-in classifier (iOS, zero app size) | Dogs, cats, livestock, frogs, crickets/insects, owls, crows, ducks, whales… mostly *groups*, shown as "Possible: …" and never auto-added |
 | Photo ID | **Apple Vision** on-device image classification → mapped to a scientific group → species of that group recorded near you (iNaturalist) to compare and confirm | Common animal types; species chosen by you, never guessed from the photo alone |

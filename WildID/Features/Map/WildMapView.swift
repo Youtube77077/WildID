@@ -20,7 +20,14 @@ struct WildMapView: View {
         case mine = "My catches", community = "Community", both = "Both"
         var id: String { rawValue }
     }
-    @State private var mode: Mode = .both
+    @State private var mode: Mode = WildMapView.launchMode
+
+    /// CI screenshots can open a specific view: `-wildid-map-mode mine|community|both`.
+    private static var launchMode: Mode {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-wildid-map-mode"), i + 1 < args.count else { return .both }
+        switch args[i + 1] { case "mine": return .mine; case "community": return .community; default: return .both }
+    }
     private var showMine: Bool { mode != .community }
     private var showRecent: Bool { mode != .mine }
     @State private var showCommunity = false

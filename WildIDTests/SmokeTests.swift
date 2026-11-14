@@ -120,6 +120,34 @@ final class BirdNETTests: XCTestCase {
         XCTAssertGreaterThan(predictions.first?.confidence ?? 0, 0.5)
     }
 
+    /// A faint, distant blackbird (−26 dB) buried under strong wind rumble and hiss: the
+    /// enhanced pass (high-pass + gain) must still name it.
+    func testFaintBlackbirdInWindIsStillIdentified() throws {
+        guard BirdNETClassifier.isAvailable,
+              let url = bundle.url(forResource: "birdnet_input", withExtension: "f32") else {
+            throw XCTSkip("BirdNET model not bundled in this build.")
+        }
+        let data = try Data(contentsOf: url)
+        let clean: [Float] = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        let peak = clean.map(abs).max() ?? 1
+        // Deterministic "wind": low-passed random walk (energy mostly below 100 Hz) + light hiss.
+        var seed: UInt32 = 12345
+        func rand() -> Float { seed = seed &* 1_664_525 &+ 1_013_904_223; return Float(seed >> 8) / Float(1 << 24) * 2 - 1 }
+        var wind: Float = 0
+        let noisy: [Float] = clean.map { s in
+            wind = 0.9995 * wind + 0.02 * rand()
+            return s / peak * 0.05 + 0.6 * wind + 0.002 * rand()
+        }
+        let classifier = try BirdNETClassifier()
+        let raw = try noisy.withUnsafeBufferPointer { try classifier.classify($0, threshold: 0.01, useLocationFilter: false) }
+        let combined = InferencePipeline.classify(noisy, model: classifier, threshold: 0.01, useLocationFilter: false, enhance: true)
+        let rawScore = raw.first { $0.label.scientificName == "Turdus merula" }?.confidence ?? 0
+        let combinedScore = combined.first { $0.label.scientificName == "Turdus merula" }?.confidence ?? 0
+        print("Faint blackbird in wind — raw: \(rawScore), with enhancer: \(combinedScore); top: \(combined.prefix(3).map { "\($0.label.commonName) \($0.confidence)" })")
+        XCTAssertGreaterThanOrEqual(combinedScore, rawScore)
+        XCTAssertGreaterThan(combinedScore, DetectionSensitivity.sensitive.threshold)
+    }
+
     /// The location/season model expects blackbirds in North Holland in November and
     /// rules out a tropical species there.
     func testMetaModelFiltersByPlaceAndWeek() throws {
@@ -167,6 +195,36 @@ final class AudioDSPTests: XCTestCase {
         XCTAssertGreaterThan(FileStore.size(of: url), 1000)
         let back = PlaybackSpectrogramModel.read(url: url, from: 0, seconds: 3) ?? []
         XCTAssertEqual(Double(back.count) / 48_000, 2, accuracy: 0.2)
+    }
+
+    private func tone(_ hz: Double, amplitude: Float, seconds: Double = 1) -> [Float] {
+        let sr = AudioCaptureEngine.analysisSampleRate
+        return (0..<Int(sr * seconds)).map { amplitude * Float(sin(2 * Double.pi * hz * Double($0) / sr)) }
+    }
+
+    private func rms(_ x: ArraySlice<Float>) -> Float {
+        (x.reduce(0) { $0 + $1 * $1 } / Float(max(1, x.count))).squareRoot()
+    }
+
+    /// The wind/rumble filter removes 40 Hz almost completely and leaves a 3 kHz call untouched.
+    func testHighPassRemovesRumbleKeepsCalls() {
+        let rumble = SignalEnhancer.highPass(tone(40, amplitude: 0.5))
+        let call = SignalEnhancer.highPass(tone(3000, amplitude: 0.5))
+        let skip = 4800   // ignore the filter's start-up transient
+        XCTAssertLessThan(rms(rumble[skip...]), 0.01 * rms(tone(40, amplitude: 0.5)[skip...]))
+        XCTAssertEqual(rms(call[skip...]), rms(tone(3000, amplitude: 0.5)[skip...]), accuracy: 0.02)
+    }
+
+    /// A call 46 dB below full scale is lifted to a level the classifier is trained on;
+    /// digital silence is not turned into noise.
+    func testEnhancerLiftsFaintSoundsButNotSilence() {
+        let faint = SignalEnhancer.enhance(tone(4000, amplitude: 0.005))
+        XCTAssertGreaterThan(faint.max() ?? 0, 0.2)
+        XCTAssertLessThanOrEqual(faint.max() ?? 0, 1)
+        let silence = SignalEnhancer.enhance([Float](repeating: 0, count: 48_000))
+        XCTAssertEqual(silence.max() ?? 1, 0)
+        XCTAssertEqual(SignalEnhancer.gain(forPeak: 0.9), 1)          // never attenuates
+        XCTAssertEqual(SignalEnhancer.gain(forPeak: 1e-6), SignalEnhancer.maxGain)
     }
 
     func testSampleRingKeepsLatestWindow() {
@@ -277,18 +335,26 @@ final class GameRulesTests: XCTestCase {
         let entry = try XCTUnwrap(m.entry(for: "Ardea cinerea"))
         m.rename(entry, to: "  Sir Stilts  ")
         XCTAssertEqual(entry.displayName, "Sir Stilts")
-        let store = BackupStore.shared
-        store.backupNow(context: c.mainContext)
-        let backup = try XCTUnwrap(store.loadBackup())
+        // The snapshot survives encoding exactly as it is stored in the Keychain…
+        let packed = try XCTUnwrap(BackupStore.pack(BackupStore.makeBackup(context: c.mainContext)))
+        let backup = try XCTUnwrap(BackupStore.unpack(packed))
         XCTAssertEqual(backup.entries.first?.nickname, "Sir Stilts")
         XCTAssertEqual(backup.entries.first?.catches.count, 1)
-        // Restore into an empty store, as after reinstalling the app.
+        // …and restores into an empty store, as after reinstalling the app.
         let schema = Schema([WildIndexEntry.self, Catch.self, SavedRecording.self, RecordingDetection.self])
         let fresh = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        XCTAssertEqual(store.restoreIfNeeded(context: fresh.mainContext), 1)
+        XCTAssertEqual(BackupStore.restore(backup, into: fresh.mainContext), 1)
         let restored = try fresh.mainContext.fetch(FetchDescriptor<WildIndexEntry>())
         XCTAssertEqual(restored.first?.displayName, "Sir Stilts")
         XCTAssertEqual(restored.first?.xp, entry.xp)
-        store.deleteBackup()
+        XCTAssertEqual(restored.first?.catches.count, 1)
+        // The Keychain itself is only reachable from a signed app (unsigned CI test hosts get
+        // errSecMissingEntitlement), so the Keychain round trip is checked when available.
+        let store = BackupStore.shared
+        store.backupNow(context: c.mainContext)
+        if let fromKeychain = store.loadBackup() {
+            XCTAssertEqual(fromKeychain.entries.first?.nickname, "Sir Stilts")
+            store.deleteBackup()
+        }
     }
 }

@@ -88,7 +88,7 @@ struct HomeView: View {
                 Text(greeting).font(.system(size: 30, weight: .heavy, design: .rounded))
             }
             Spacer()
-            Button { router.tab = .pets } label: {
+            Button { router.tab = .wildlings } label: {
                 HStack(spacing: 6) {
                     ZStack {
                         Circle().stroke(Theme.sunlight.opacity(0.3), lineWidth: 3)
@@ -103,6 +103,14 @@ struct HomeView: View {
             }
             .tint(.primary)
             .accessibilityLabel("Explorer level \(level.level)")
+            Button { router.showIdentify = true } label: {
+                Image(systemName: "sparkle.magnifyingglass")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .background(Theme.card, in: Circle())
+            }
+            .tint(.primary)
+            .accessibilityLabel("Identify an animal")
             Button { router.showSettings = true } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 17, weight: .semibold))
@@ -186,6 +194,15 @@ struct HomeView: View {
 
     private var actions: some View {
         VStack(spacing: 12) {
+            HStack {
+                Text("Identify an animal").font(.system(size: 20, weight: .heavy, design: .rounded))
+                Spacer()
+                Button { router.showIdentify = true } label: {
+                    HStack(spacing: 4) { Text("All ways"); Image(systemName: "chevron.right").font(.caption.weight(.bold)) }
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                }
+                .tint(Theme.moss)
+            }
             Button { router.showSoundID = true } label: {
                 HStack(spacing: 14) {
                     Image(systemName: "waveform")

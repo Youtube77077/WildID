@@ -67,17 +67,23 @@ jobs:
           rm -f docs/screenshots/*.png
           D=-wildid-demo-data
           WAIT=24 shot 01-home $D
-          WAIT=12 shot 02-identify $D -wildid-tab identify
-          WAIT=24 shot 03-map $D -wildid-tab map
-          WAIT=22 shot 04-wild-index $D -wildid-tab index
-          WAIT=22 shot 05-pet-index $D -wildid-tab pets
-          WAIT=26 shot 06-pet-detail $D -wildid-pet "Erithacus rubecula"
-          WAIT=22 shot 07-explore $D -wildid-tab explore
-          WAIT=22 shot 08-species $D -wildid-species "Vulpes vulpes"
-          WAIT=12 shot 09-sound-id $D -wildid-open sound
-          WAIT=10 shot 10-step-by-step $D -wildid-open guided
-          WAIT=10 shot 11-photo-id $D -wildid-open photo
-          WAIT=10 shot 12-settings $D -wildid-open settings
+          WAIT=12 shot 02-identify $D -wildid-open identify
+          WAIT=12 shot 03-sound-id $D -wildid-open sound
+          WAIT=10 shot 04-photo-id $D -wildid-open photo
+          WAIT=10 shot 05-step-by-step $D -wildid-open guided
+          WAIT=12 shot 06-sound-sessions $D -wildid-open recordings
+          WAIT=24 shot 07-map-both $D -wildid-tab map
+          WAIT=24 shot 08-map-my-catches $D -wildid-tab map -wildid-map-mode mine
+          WAIT=24 shot 09-map-community $D -wildid-tab map -wildid-map-mode community
+          WAIT=22 shot 10-wild-index $D -wildid-tab index
+          WAIT=26 shot 11-wild-index-entry $D -wildid-entry "Vulpes vulpes"
+          WAIT=20 shot 12-achievements $D -wildid-open achievements
+          WAIT=22 shot 13-wildlings $D -wildid-tab wildlings
+          WAIT=26 shot 14-wildling-detail $D -wildid-pet "Vulpes vulpes"
+          WAIT=16 shot 15-wildlings-guide $D -wildid-open wildlings-guide
+          WAIT=22 shot 16-explore $D -wildid-tab explore
+          WAIT=22 shot 17-species $D -wildid-species "Lutra lutra"
+          WAIT=10 shot 18-settings $D -wildid-open settings
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
         run: |

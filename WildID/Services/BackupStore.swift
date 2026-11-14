@@ -3,7 +3,7 @@ import Foundation
 import Security
 import SwiftData
 
-/// Keeps your Wild Index / Pet Index safe when the app is deleted and installed again — without
+/// Keeps your Wild Index / Wildlings safe when the app is deleted and installed again — without
 /// any account. A compressed copy of every species and catch (dates, places, methods, XP, nicknames)
 /// is stored in this iPhone's Keychain with "this device only" protection:
 /// - it survives deleting the app (iOS keeps an app's Keychain items after uninstall),
@@ -90,8 +90,22 @@ final class BackupStore {
     }
 
     func backupNow(context: ModelContext) {
+        let backup = Self.makeBackup(context: context)
+        guard let packed = Self.pack(backup) else { return }
+        let chunks = stride(from: 0, to: packed.count, by: chunkSize).map { packed.subdata(in: $0..<min($0 + chunkSize, packed.count)) }
+        let oldCount = Int(metaInfo()["chunks"] ?? 0)
+        for (i, chunk) in chunks.enumerated() { write(account: "chunk-\(i)", data: chunk) }
+        if oldCount > chunks.count { for i in chunks.count..<oldCount { delete(account: "chunk-\(i)") } }
+        let meta: [String: Double] = ["savedAt": Date().timeIntervalSince1970, "species": Double(backup.entries.count), "chunks": Double(chunks.count)]
+        if let m = try? JSONEncoder().encode(meta) { write(account: "meta", data: m) }
+        lastSaved = Date()
+        savedSpecies = backup.entries.count
+    }
+
+    /// Snapshot of the whole Wild Index (pure; no Keychain access).
+    static func makeBackup(context: ModelContext) -> Backup {
         let entries = (try? context.fetch(FetchDescriptor<WildIndexEntry>())) ?? []
-        let backup = Backup(savedAt: Date(), entries: entries.map { e in
+        return Backup(savedAt: Date(), entries: entries.map { e in
             BackupEntry(scientificName: e.scientificName, commonName: e.commonName, taxonID: e.taxonID, group: e.groupRaw,
                         photoURL: e.photoURLString, family: e.familyName, order: e.orderName, className: e.className,
                         conservation: e.conservationCode, rarity: e.rarityRaw, localCount: e.localObservationCount,
@@ -104,16 +118,17 @@ final class BackupStore {
                                         awardedAt: c.awardedAt)
                         })
         })
-        guard let json = try? JSONEncoder().encode(backup),
-              let packed = try? (json as NSData).compressed(using: .zlib) as Data else { return }
-        let chunks = stride(from: 0, to: packed.count, by: chunkSize).map { packed.subdata(in: $0..<min($0 + chunkSize, packed.count)) }
-        let oldCount = Int(metaInfo()["chunks"] ?? 0)
-        for (i, chunk) in chunks.enumerated() { write(account: "chunk-\(i)", data: chunk) }
-        if oldCount > chunks.count { for i in chunks.count..<oldCount { delete(account: "chunk-\(i)") } }
-        let meta: [String: Double] = ["savedAt": Date().timeIntervalSince1970, "species": Double(entries.count), "chunks": Double(chunks.count)]
-        if let m = try? JSONEncoder().encode(meta) { write(account: "meta", data: m) }
-        lastSaved = Date()
-        savedSpecies = entries.count
+    }
+
+    /// JSON + zlib, as stored in the Keychain.
+    static func pack(_ backup: Backup) -> Data? {
+        guard let json = try? JSONEncoder().encode(backup) else { return nil }
+        return try? (json as NSData).compressed(using: .zlib) as Data
+    }
+
+    static func unpack(_ packed: Data) -> Backup? {
+        guard let json = try? (packed as NSData).decompressed(using: .zlib) as Data else { return nil }
+        return try? JSONDecoder().decode(Backup.self, from: json)
     }
 
     // MARK: Restore
@@ -123,6 +138,14 @@ final class BackupStore {
     func restoreIfNeeded(context: ModelContext) -> Int {
         let existing = (try? context.fetchCount(FetchDescriptor<WildIndexEntry>())) ?? 0
         guard existing == 0, let backup = loadBackup(), !backup.entries.isEmpty else { return 0 }
+        let n = Self.restore(backup, into: context)
+        restoredSpecies = n
+        return n
+    }
+
+    /// Inserts every entry and catch of `backup` into `context` (pure; no Keychain access).
+    @discardableResult
+    static func restore(_ backup: Backup, into context: ModelContext) -> Int {
         for b in backup.entries {
             let e = WildIndexEntry(scientificName: b.scientificName, commonName: b.commonName, taxonID: b.taxonID,
                                    group: AnimalGroup(rawValue: b.group) ?? .other, photoURL: b.photoURL.flatMap(URL.init(string:)),
@@ -152,7 +175,6 @@ final class BackupStore {
             }
         }
         try? context.save()
-        restoredSpecies = backup.entries.count
         return backup.entries.count
     }
 
@@ -164,8 +186,7 @@ final class BackupStore {
             guard let chunk = read(account: "chunk-\(i)") else { return nil }
             packed.append(chunk)
         }
-        guard let json = try? (packed as NSData).decompressed(using: .zlib) as Data else { return nil }
-        return try? JSONDecoder().decode(Backup.self, from: json)
+        return Self.unpack(packed)
     }
 
     func deleteBackup() {

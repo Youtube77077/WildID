@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 import CoreLocation
 
-enum AppTab: Hashable { case home, identify, map, wildIndex, pets }
+enum AppTab: Hashable { case home, map, wildIndex, wildlings }
 
 struct ExploreRoute: Hashable {}
 
@@ -15,6 +15,9 @@ final class Router {
     var homePath = NavigationPath()
     var presentedSpecies: SpeciesRef?
     var presentedPetKey: String?
+    var showIdentify = false
+    var showWildlingsGuide = false
+    var showAchievements = false
     var showSoundID = false
     var showPhotoID = false
     var showGuidedID = false

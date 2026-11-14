@@ -16,7 +16,7 @@ struct WildIndexView: View {
     @State private var filter: AnimalGroup? = nil
     @State private var sort: SortOrder = .newest
     @State private var search = ""
-    @State private var showAchievements = false
+    @Environment(Router.self) private var router
 
     private var visible: [WildIndexEntry] {
         var list = entries.filter { filter == nil || $0.group == filter }
@@ -85,7 +85,7 @@ struct WildIndexView: View {
             .navigationTitle("Wild Index")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Button { showAchievements = true } label: { Image(systemName: "trophy") }
+                    Button { router.showAchievements = true } label: { Image(systemName: "trophy") }
                         .accessibilityLabel("Achievements")
                     Menu {
                         Picker("Sort", selection: $sort) {
@@ -96,7 +96,7 @@ struct WildIndexView: View {
                 }
             }
             .wildDestinations()
-            .sheet(isPresented: $showAchievements) { AchievementsView() }
+            .sheet(isPresented: Binding(get: { router.showAchievements }, set: { router.showAchievements = $0 })) { AchievementsView() }
         }
     }
 
@@ -128,7 +128,7 @@ struct WildIndexView: View {
                 chip(nil, title: "All", count: entries.count)
                 ForEach(AnimalGroup.allCases) { g in
                     let n = entries.filter { $0.group == g }.count
-                    if n > 0 || [.birds, .mammals, .insects, .reptiles, .amphibians].contains(g) {
+                    if n > 0 || [.mammals, .birds, .reptiles, .amphibians, .insects].contains(g) {
                         chip(g, title: g.title, count: n)
                     }
                 }
