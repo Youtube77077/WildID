@@ -10,6 +10,7 @@ struct HomeView: View {
     @Query(sort: \WildIndexEntry.lastCaughtAt, order: .reverse) private var entries: [WildIndexEntry]
     @Query(sort: \SavedRecording.startedAt, order: .reverse) private var recordings: [SavedRecording]
     @State private var page = 0
+    @State private var sightings: [INatObservation] = []
 
     var body: some View {
         NavigationStack {
@@ -39,13 +40,19 @@ struct HomeView: View {
                     }
                     recommendations
                         .padding(.top, 28)
+                    recentSightings
+                        .padding(.top, 28)
                         .padding(.bottom, 40)
                 }
             }
             .background(Theme.background)
             .wildDestinations()
             .toolbar(.hidden, for: .navigationBar)
-            .refreshable { await nearby.load(for: location.activePlace, force: true) }
+            .refreshable {
+                await nearby.load(for: location.activePlace, force: true)
+                await loadSightings()
+            }
+            .task(id: location.activePlace?.name) { await loadSightings() }
         }
     }
 
@@ -313,6 +320,48 @@ struct HomeView: View {
                 .padding(.horizontal, Theme.gutter)
             }
         }
+    }
+}
+
+extension HomeView {
+    fileprivate var recentSightings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !sightings.isEmpty {
+                SectionHeader(title: "Recent sightings nearby", subtitle: "Verified observations from the iNaturalist community")
+                    .padding(.horizontal, Theme.gutter)
+                VStack(spacing: 0) {
+                    ForEach(sightings.prefix(6)) { o in
+                        if let t = o.taxon {
+                            NavigationLink(value: SpeciesRef(taxon: t)) {
+                                HStack(spacing: 12) {
+                                    SpeciesThumb(url: o.photos?.first?.sized("small") ?? t.thumbURL, group: t.group, size: 60, corner: 8)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(t.commonName).font(.headline).foregroundStyle(.primary)
+                                        Text([o.observedDate.map { $0.formatted(.relative(presentation: .named)) }, o.place_guess].compactMap { $0 }.joined(separator: " · "))
+                                            .font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                                        Text("by \(o.user?.name?.isEmpty == false ? o.user!.name! : (o.user?.login ?? "observer"))")
+                                            .font(.caption2).foregroundStyle(Theme.tertiaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.tertiaryText)
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                            Divider().padding(.leading, 72)
+                        }
+                    }
+                }
+                .padding(.horizontal, Theme.gutter)
+            }
+        }
+    }
+
+    fileprivate func loadSightings() async {
+        guard let c = location.activePlace?.coordinate else { return }
+        let d = 0.12
+        sightings = (try? await INaturalistAPI().observations(in: (c.latitude - d, c.longitude - d * 1.6, c.latitude + d, c.longitude + d * 1.6),
+                                                              perPage: 12)) ?? []
     }
 }
 

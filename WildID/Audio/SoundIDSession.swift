@@ -127,6 +127,8 @@ struct LiveDetection: Identifiable, Equatable {
     var isNewToIndex: Bool
     var newHighlightUntil: Date
     var caught = false
+    /// Taxon lookup finished (successfully or not); catches wait for it so they get photo/ID.
+    var resolved = false
     var clipFileName: String?
     var lastConfidence: Float
 }
@@ -429,6 +431,7 @@ final class SoundIDSession {
                                                               fallbackGroup: group, isGroupLevel: groupLevel)
             if let i = detections.firstIndex(where: { $0.id == key }) {
                 detections[i].species = resolved
+                detections[i].resolved = true
             }
             maybeCatch(id: key, clipSamples: clipSamples)
         }
@@ -439,7 +442,7 @@ final class SoundIDSession {
     private func maybeCatch(id: String, clipSamples: [Float]?) {
         guard let i = detections.firstIndex(where: { $0.id == id }) else { return }
         let d = detections[i]
-        guard !d.caught, !d.species.isGroupLevel, settings?.autoAddToWildIndex ?? true, let collection else { return }
+        guard d.resolved, !d.caught, !d.species.isGroupLevel, settings?.autoAddToWildIndex ?? true, let collection else { return }
         let threshold = settings?.sensitivity.threshold ?? 0.5
         let strongSingle = d.maxConfidence >= min(0.92, threshold + 0.2)
         guard d.count >= 2 || strongSingle else { return }

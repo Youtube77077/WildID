@@ -55,6 +55,8 @@ Every push builds the app on GitHub Actions (`iOS build & tests`). The run uploa
 | Photo ID | **Apple Vision** on-device image classification → mapped to a scientific group → species of that group recorded near you (iNaturalist) to compare and confirm | Common animal types; species chosen by you, never guessed from the photo alone |
 | Step by Step | A question tree (shape, size, legs, wings…) mapped to real taxa → species recorded at the place/season you choose | All animal groups |
 
+**Measured accuracy (real recordings).** On 160 research-grade iNaturalist recordings of the 40 bird species most often recorded within 50 km of Monnickendam (run 2026-11-14), BirdNET as shipped in WildID ranked the true species first in **79.4%** of recordings (**80.6%** with the location/week filter) and in the top five in **91.9%** (**94.4%** filtered). The filter reduced extra species above the 0.5 threshold from 0.62 to 0.37 per recording. Full per-recording results: [`tools/eval/reports/birdnet_eval.md`](tools/eval/reports/birdnet_eval.md).
+
 **Validation.** `tools/models/convert_birdnet.py` checks that the Core ML model reproduces TensorFlow's output (top-1 identical on a real Eurasian Blackbird recording, max logit difference ≈ 0.07). `tools/eval/evaluate_birdnet.py` (workflow *Evaluate BirdNET on real recordings*) scores the model on research-grade iNaturalist recordings of birds around Monnickendam and writes `tools/eval/reports/birdnet_eval.md`. Unit tests run the bundled model on the real recording on the iOS Simulator.
 
 **Honest limits.** Bird song identification is mature; insects, bats (ultrasonic — phones can't hear them) and marine mammals are only partly covered; group-level detections are not species identifications; photo identification relies on you to confirm the species. Rarity labels describe how often a species is *recorded* within 50 km on iNaturalist, not its population.
@@ -100,6 +102,12 @@ tools/
 - The workflow builds `data/xeno-canto/species/*.json` (best recordings per species with recordist + license); the app reads these public files, so it needs no key.
 - Optionally you can paste your own key in the app (*Settings › Xeno-canto*); it is stored in the iPhone Keychain only.
 - See `.env.example` for local tooling.
+
+## Testing
+
+- **Unit tests** (`WildIDTests`, run in Xcode with ⌘U or by CI): taxonomy/group mapping, rarity, Vision label matching, honest Apple-sound mappings, Wikipedia section parsing, Wikidata formatting, BirdNET week calendar, meta-model encoding vs. TensorFlow reference values, **Core ML inference on a real Blackbird recording**, location/season filtering, FFT spectrogram frequency accuracy, AAC clip round-trip, sample ring buffer, Wild Index de-duplication (one card per species, many catches, group-level detections never collected) and achievements.
+- **CI workflows**: `iOS build & tests` (device build + simulator tests + unsigned .ipa), `Simulator screenshots` (launches every screen with live data at Monnickendam and commits `docs/screenshots/`), `Convert models`, `Evaluate BirdNET on real recordings`, `Xeno-canto index`.
+- **On your iPhone** (things a simulator can't test): microphone permission and live recording, spectrogram updating, detections + yellow highlight + New Animal pop-up, locking the screen during a session, a phone call interrupting (session pauses and resumes), saving/deleting recordings, camera Photo ID, location accuracy of catches on the map.
 
 ## Running the tooling locally
 
