@@ -1,0 +1,19 @@
+name: Probe range data APIs
+on:
+  push:
+    paths: ['.github/workflows/probe-grid.yml']
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: iNaturalist grid (UTFGrid JSON)
+        run: |
+          curl -s "https://api.inaturalist.org/v1/grid/2/2/1.grid.json?taxon_id=42069&quality_grade=research" | head -c 1500; echo
+          echo ---; curl -s "https://api.inaturalist.org/v1/heatmap/2/2/1.grid.json?taxon_id=42069&quality_grade=research" | head -c 800; echo
+      - name: GBIF occurrence sample
+        run: |
+          curl -s "https://api.gbif.org/v1/occurrence/search?taxonKey=5219243&hasCoordinate=true&limit=2" | head -c 800; echo
+      - name: GBIF map capabilities
+        run: |
+          curl -s "https://api.gbif.org/v2/map/occurrence/density/capabilities.json?taxonKey=5219243" | head -c 800; echo
