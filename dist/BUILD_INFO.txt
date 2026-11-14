@@ -1,0 +1,2 @@
+Built from 965f3eb (2026-11-14)
+Unsigned: sign with Sideloadly/AltStore using your Apple ID.
