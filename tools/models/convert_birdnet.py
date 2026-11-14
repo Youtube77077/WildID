@@ -172,6 +172,18 @@ def rewrite_rfft(gd, in_name, sample_input):
     return out
 
 
+def wrap_frozen_graph(gd, in_name, out_name):
+    """Turns a GraphDef into a TF2 ConcreteFunction that coremltools' TF2 frontend accepts."""
+    import tensorflow as tf
+
+    def _import():
+        tf.compat.v1.import_graph_def(gd, name="")
+
+    wrapped = tf.compat.v1.wrap_function(_import, [])
+    g = wrapped.graph
+    return wrapped.prune(g.as_graph_element(in_name + ":0"), g.as_graph_element(out_name + ":0"))
+
+
 def run_graph(gd, in_name, out_name, x):
     import tensorflow as tf
 
@@ -269,11 +281,9 @@ def main():
             base = base.rsplit("_", 1)[0]
         return op.op_type != "const"
 
-    audio_pb = os.path.join(args.work, "audio_rewritten.pb")
-    with open(audio_pb, "wb") as fh:
-        fh.write(gd2.SerializeToString())
+    audio_cf = wrap_frozen_graph(gd2, in_name, out_name)
     mlmodel = ct.convert(
-        audio_pb,
+        [audio_cf],
         source="tensorflow",
         inputs=[ct.TensorType(name=in_name, shape=(1, 144000), dtype=np.float32)],
         outputs=[ct.TensorType(name=out_name)],
@@ -296,11 +306,9 @@ def main():
 
     # ---------- meta model ----------
     mgd, m_in, m_out, _ = freeze(os.path.join(pb_dir, "meta-model"), "serving_default")
-    meta_pb = os.path.join(args.work, "meta_frozen.pb")
-    with open(meta_pb, "wb") as fh:
-        fh.write(mgd.SerializeToString())
+    meta_cf = wrap_frozen_graph(mgd, m_in, m_out)
     meta = ct.convert(
-        meta_pb,
+        [meta_cf],
         source="tensorflow",
         inputs=[ct.TensorType(name=m_in, shape=(1, 3), dtype=np.float32)],
         outputs=[ct.TensorType(name=m_out)],
