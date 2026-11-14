@@ -1,2 +1,2 @@
-Built from 2653fd3 (2026-11-14)
+Built from 222461a (2026-11-14)
 Unsigned: sign with Sideloadly/AltStore using your Apple ID.
