@@ -241,6 +241,21 @@ struct INaturalistAPI {
         return try await http.get(INatPage<INatTaxon>.self, from: url, maxAge: 60 * 60 * 24 * 7).results
     }
 
+    /// Most observed species within one or more taxa (comma separated ids), paged.
+    func popularSpecies(inTaxa taxonIDs: String, page: Int, perPage: Int = 30) async throws -> [INatTaxon] {
+        let url = URL.build("\(Self.base)/taxa", [
+            "taxon_id": taxonIDs,
+            "rank": "species",
+            "is_active": "true",
+            "order_by": "observations_count",
+            "order": "desc",
+            "per_page": String(perPage),
+            "page": String(page),
+            "locale": Self.locale,
+        ])
+        return try await http.get(INatPage<INatTaxon>.self, from: url, maxAge: 60 * 60 * 24 * 7).results
+    }
+
     /// Recent observations with photos in a map region. Sensitive species and private
     /// locations are excluded (geoprivacy/taxon_geoprivacy=open).
     func observations(in region: (swLat: Double, swLng: Double, neLat: Double, neLng: Double),

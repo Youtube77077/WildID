@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(LocationService.self) private var location
     @Environment(Router.self) private var router
     @Query private var entries: [WildIndexEntry]
+    @Environment(\.modelContext) private var collectionContext
     @State private var pickingPlace = false
     @State private var xcKey = KeychainStore.read(.xenoCantoKey) ?? ""
     @State private var xcSaved = false
@@ -60,6 +61,19 @@ struct SettingsView: View {
                     Toggle("Haptics", isOn: $settings.haptics)
                 } header: { Text("Sound ID") } footer: {
                     Text("Species are auto-added when heard twice, or once with high confidence. Non-bird detection uses Apple's built-in sound classifier and reports broad groups (e.g. “Frogs & toads”) unless the species is certain (e.g. domestic animals). Recordings can last up to 3 hours.")
+                }
+
+                Section {
+                    let backup = BackupStore.shared
+                    LabeledContent("Saved species", value: "\(backup.savedSpecies)")
+                    LabeledContent("Last saved", value: backup.lastSaved.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Not yet")
+                    if backup.restoredSpecies > 0 {
+                        Label("Restored \(backup.restoredSpecies) species after reinstall", systemImage: "arrow.counterclockwise.circle.fill")
+                            .foregroundStyle(Theme.moss)
+                    }
+                    Button("Save now") { BackupStore.shared.backupNow(context: collectionContext) }
+                } header: { Text("Kept on this iPhone") } footer: {
+                    Text("Your catches, XP, levels and nicknames are saved automatically in this iPhone's secure Keychain (device-only, never uploaded). If you delete WildID and install it again on this phone — signed with the same Apple ID — everything comes back. Other people's phones start empty. Photos you attached and saved recordings are not included (export recordings with Share first).")
                 }
 
                 Section("Names") {

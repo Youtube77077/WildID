@@ -16,9 +16,14 @@ struct WildMapView: View {
 
     @State private var group: AnimalGroup? = nil
     @State private var time: TimeFilter = .all
-    @State private var showMine = true
+    enum Mode: String, CaseIterable, Identifiable {
+        case mine = "My catches", community = "Community", both = "Both"
+        var id: String { rawValue }
+    }
+    @State private var mode: Mode = .both
+    private var showMine: Bool { mode != .community }
+    private var showRecent: Bool { mode != .mine }
     @State private var showCommunity = false
-    @State private var showRecent = true
     @State private var satellite = false
     @State private var selected: MapPin?
     @State private var focus: MapFocusRequest?
@@ -42,6 +47,13 @@ struct WildMapView: View {
 
                 VStack(spacing: 10) {
                     searchBar
+                    Picker("Show", selection: $mode) {
+                        ForEach(Mode.allCases) { m in Text(m.rawValue).tag(m) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(4)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .onChange(of: mode) { _, _ in Task { await loadObservations() } }
                     if !searchResults.isEmpty { searchResultsList }
                     filterChips
                     if let focusSpecies { focusBanner(focusSpecies) }
@@ -187,7 +199,7 @@ struct WildMapView: View {
                     focusSpecies = t
                     searchText = ""
                     searchResults = []
-                    showRecent = true
+                    if mode == .mine { mode = .both }
                     Task { await loadObservations() }
                 } label: {
                     HStack(spacing: 10) {
@@ -245,8 +257,6 @@ struct WildMapView: View {
     private var mapButtons: some View {
         VStack(spacing: 0) {
             Menu {
-                Toggle(isOn: $showMine) { Label("My catches", systemImage: "square.grid.2x2.fill") }
-                Toggle(isOn: $showRecent) { Label("Recent sightings (iNaturalist)", systemImage: "mappin.and.ellipse") }
                 Toggle(isOn: $showCommunity) { Label("All observations layer", systemImage: "circle.grid.3x3.fill") }
                 Toggle(isOn: $satellite) { Label("Satellite", systemImage: "globe.europe.africa.fill") }
                 Picker("My catches", selection: $time) {
@@ -299,7 +309,7 @@ struct WildMapView: View {
             let species = Set(filteredCatches.compactMap { $0.entry?.key }).count
             HStack {
                 Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.moss)
-                Text(catches.isEmpty ? "Your catches will appear here" : "\(filteredCatches.count) catches · \(species) species")
+                Text(mode == .community ? "Community sightings (iNaturalist)" : catches.isEmpty ? "Your catches will appear here" : "\(filteredCatches.count) catches · \(species) species")
                     .font(.subheadline.weight(.semibold))
                 if loadingObservations { ProgressView().controlSize(.small) }
                 Spacer()

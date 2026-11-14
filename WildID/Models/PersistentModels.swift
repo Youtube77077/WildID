@@ -24,29 +24,136 @@ enum CatchMethod: String, Codable, CaseIterable {
     }
 }
 
-/// Local rarity based on how often a species is observed within 50 km (iNaturalist research-grade).
-enum Rarity: String, Codable, CaseIterable {
-    case common, uncommon, rare, veryRare
+/// Rarity tier, from Common to Legendary, based on how often a species is recorded near where
+/// you found it (research-grade iNaturalist observations within 50 km), raised for threatened
+/// species (IUCN Red List). It describes local scarcity, not a global population count.
+enum Rarity: String, Codable, CaseIterable, Comparable {
+    case common, uncommon, rare, epic, legendary
+
+    init?(storedValue: String) {
+        if storedValue == "veryRare" { self = .epic } else if let r = Rarity(rawValue: storedValue) { self = r } else { return nil }
+    }
 
     var title: String {
         switch self {
         case .common: "Common"
         case .uncommon: "Uncommon"
         case .rare: "Rare"
-        case .veryRare: "Very rare"
+        case .epic: "Epic"
+        case .legendary: "Legendary"
         }
     }
 
-    static func from(localObservations n: Int) -> Rarity {
-        switch n {
+    var rank: Int { Rarity.allCases.firstIndex(of: self) ?? 0 }
+    static func < (a: Rarity, b: Rarity) -> Bool { a.rank < b.rank }
+
+    /// Local observations within 50 km (all time) → tier.
+    static func from(localObservations n: Int, conservationCode: String? = nil) -> Rarity {
+        var tier: Rarity = switch n {
         case 500...: .common
         case 100..<500: .uncommon
-        case 10..<100: .rare
-        default: .veryRare
+        case 20..<100: .rare
+        case 5..<20: .epic
+        default: .legendary
+        }
+        switch conservationCode?.uppercased() {
+        case "VU": tier = max(tier, .rare)
+        case "EN": tier = max(tier, .epic)
+        case "CR", "EW": tier = .legendary
+        default: break
+        }
+        return tier
+    }
+
+    /// Seasonal counts from "species near you" lists (25 km, ±1 month) → tier, for browsing.
+    static func fromSeasonalCount(_ n: Int) -> Rarity {
+        switch n {
+        case 200...: .common
+        case 50..<200: .uncommon
+        case 10..<50: .rare
+        case 3..<10: .epic
+        default: .legendary
         }
     }
 
-    static let explanation = "Based on the number of research-grade iNaturalist observations within 50 km of where you caught it: Common ≥ 500, Uncommon 100–499, Rare 10–99, Very rare < 10. It describes how often people record the species locally, not its global population."
+    static let explanation = "Rarity tiers come from how often people record the species within 50 km of where you found it (iNaturalist research-grade observations): Common ≥ 500, Uncommon 100–499, Rare 20–99, Epic 5–19, Legendary < 5. Threatened species are raised (Vulnerable → at least Rare, Endangered → at least Epic, Critically Endangered → Legendary). It describes local scarcity, not the world population."
+}
+
+/// Experience rules for the Pet Index. Designed so it can't be farmed:
+/// - the first catch of a species gives the most XP (more for rarer tiers);
+/// - repeat catches only earn XP once per hour per species, at most 3 times per day;
+/// - unverified methods earn less (manual sightings a quarter, Step by Step half);
+/// - Sound ID adds each species at most once per session.
+enum XPRules {
+    static func firstCatchXP(_ tier: Rarity) -> Int {
+        switch tier {
+        case .common: 100
+        case .uncommon: 150
+        case .rare: 250
+        case .epic: 400
+        case .legendary: 700
+        }
+    }
+
+    static func repeatXP(_ tier: Rarity) -> Int {
+        switch tier {
+        case .common: 20
+        case .uncommon: 30
+        case .rare: 45
+        case .epic: 70
+        case .legendary: 100
+        }
+    }
+
+    static func methodFactor(_ m: CatchMethod) -> Double {
+        switch m {
+        case .sound, .photo: 1.0
+        case .guided: 0.5
+        case .manual: 0.25
+        }
+    }
+
+    static let repeatCooldown: TimeInterval = 60 * 60
+    static let maxRewardedRepeatsPerDay = 3
+
+    /// XP for a new catch, given the species' earlier catches.
+    static func award(method: CatchMethod, tier: Rarity, isFirst: Bool, previous: [Catch], now: Date = Date()) -> Int {
+        let factor = methodFactor(method)
+        if isFirst { return Int((Double(firstCatchXP(tier)) * factor).rounded()) }
+        let rewarded = previous.filter { $0.xpAwarded > 0 }
+        func when(_ c: Catch) -> Date { c.awardedAt ?? c.date }
+        if let last = rewarded.map(when).max(), now.timeIntervalSince(last) < repeatCooldown { return 0 }
+        let today = rewarded.filter { Calendar.current.isDate(when($0), inSameDayAs: now) && !$0.isFirstCatch }.count
+        if today >= maxRewardedRepeatsPerDay { return 0 }
+        return Int((Double(repeatXP(tier)) * factor).rounded())
+    }
+
+    /// Cumulative XP needed to reach a level: 75·n(n−1)/2 (Lv2 = 75, Lv5 = 750, Lv10 = 3,375).
+    static func xpForLevel(_ level: Int) -> Int { 75 * level * (level - 1) / 2 }
+    static let maxLevel = 50
+
+    static func level(forXP xp: Int) -> Int {
+        var l = 1
+        while l < maxLevel && xp >= xpForLevel(l + 1) { l += 1 }
+        return l
+    }
+
+    /// Progress inside the current level, 0...1.
+    static func progress(forXP xp: Int) -> (level: Int, into: Int, needed: Int, fraction: Double) {
+        let l = level(forXP: xp)
+        guard l < maxLevel else { return (l, 0, 0, 1) }
+        let base = xpForLevel(l), next = xpForLevel(l + 1)
+        return (l, xp - base, next - base, Double(xp - base) / Double(next - base))
+    }
+
+    /// Explorer (user) level from total XP across all animals; slower curve.
+    static func explorerLevel(totalXP: Int) -> (level: Int, fraction: Double, next: Int) {
+        var l = 1
+        func need(_ n: Int) -> Int { 250 * n * (n - 1) / 2 }
+        while l < 99 && totalXP >= need(l + 1) { l += 1 }
+        let base = need(l), nxt = need(l + 1)
+        return (l, Double(totalXP - base) / Double(max(1, nxt - base)), nxt)
+    }
 }
 
 /// One species in the user's Wild Index (their personal collection). Unique per species.
@@ -67,6 +174,9 @@ final class WildIndexEntry {
     var firstCaughtAt: Date
     var lastCaughtAt: Date
     var isFavorite: Bool = false
+    /// Pet Index: optional nickname and experience points.
+    var nickname: String? = nil
+    var xp: Int = 0
 
     @Relationship(deleteRule: .cascade, inverse: \Catch.entry)
     var catches: [Catch] = []
@@ -88,7 +198,11 @@ final class WildIndexEntry {
 
     var group: AnimalGroup { AnimalGroup(rawValue: groupRaw) ?? .other }
     var photoURL: URL? { photoURLString.flatMap(URL.init(string:)) }
-    var rarity: Rarity? { rarityRaw.flatMap(Rarity.init(rawValue:)) }
+    var rarity: Rarity? { rarityRaw.flatMap { Rarity(storedValue: $0) } }
+    /// Tier used by the Pet Index (Common until local data is known).
+    var tier: Rarity { rarity ?? .common }
+    var level: Int { XPRules.level(forXP: xp) }
+    var displayName: String { (nickname?.isEmpty == false) ? nickname! : commonName }
     var methods: Set<CatchMethod> { Set(catches.map(\.method)) }
     var sortedCatches: [Catch] { catches.sorted { $0.date > $1.date } }
     var latestCatch: Catch? { catches.max { $0.date < $1.date } }
@@ -110,6 +224,10 @@ final class Catch {
     /// File name inside Application Support/Clips (a few seconds of the detection audio).
     var audioClipFileName: String?
     var recordingID: UUID?
+    var xpAwarded: Int = 0
+    var isFirstCatch: Bool = false
+    /// When XP was granted (not the sighting date, which a user can backdate).
+    var awardedAt: Date? = nil
     var entry: WildIndexEntry?
 
     init(date: Date, coordinate: CLLocationCoordinate2D?, placeName: String?, countryCode: String?,

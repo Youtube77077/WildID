@@ -8,7 +8,9 @@ struct WildIDApp: App {
 
     init() {
         let schema = Schema([WildIndexEntry.self, Catch.self, SavedRecording.self, RecordingDetection.self])
-        let config = ModelConfiguration("WildID", schema: schema)
+        // CI screenshot runs pass -wildid-demo-data: use a throwaway in-memory store.
+        let demo = ProcessInfo.processInfo.arguments.contains("-wildid-demo-data")
+        let config = demo ? ModelConfiguration(isStoredInMemoryOnly: true) : ModelConfiguration("WildID", schema: schema)
         let container: ModelContainer
         do {
             container = try ModelContainer(for: schema, configurations: config)
@@ -30,6 +32,7 @@ struct WildIDApp: App {
                 .environment(env.toasts)
                 .environment(env.router)
                 .environment(env.nearby)
+                .environment(env.daily)
                 .environment(env.sound)
                 .environment(env.collection)
                 .environment(AudioPlayer.shared)

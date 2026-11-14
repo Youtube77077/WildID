@@ -29,16 +29,16 @@ struct NewAnimalToast: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
-                    Text("NEW ANIMAL")
-                        .font(.system(size: 11, weight: .heavy))
+                    Text(event.kind == .levelUp ? "LEVEL UP!" : "NEW ANIMAL")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .tracking(1.2)
                         .foregroundStyle(Theme.mossDeep)
-                    Text("#\(event.totalSpecies)")
-                        .font(.system(size: 11, weight: .bold).monospacedDigit())
-                        .foregroundStyle(Theme.mossDeep.opacity(0.7))
+                    if event.kind == .newAnimal {
+                        TierBadge(tier: event.tier, compact: true)
+                    }
                 }
-                Text(event.species.commonName)
-                    .font(.system(size: 16, weight: .bold))
+                Text(event.kind == .levelUp ? "\(event.displayName ?? event.species.commonName) reached Lv \(event.level)" : event.species.commonName)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(.black)
                     .lineLimit(1)
                 Text("(\(event.species.scientificName))")
@@ -47,10 +47,17 @@ struct NewAnimalToast: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Image(systemName: "sparkles")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Theme.mossDeep)
-                .symbolEffect(.bounce, value: shimmer)
+            VStack(spacing: 2) {
+                Image(systemName: event.kind == .levelUp ? "arrow.up.circle.fill" : "sparkles")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Theme.mossDeep)
+                    .symbolEffect(.bounce, value: shimmer)
+                if event.xp > 0 {
+                    Text("+\(event.xp) XP")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Theme.mossDeep)
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

@@ -64,7 +64,7 @@ struct RecordingPlayerCard: View {
     var body: some View {
         VStack(spacing: 10) {
             ZStack {
-                Theme.softFill.opacity(0.5)
+                Color(red: 9 / 255, green: 34 / 255, blue: 33 / 255)
                 if let image = spectro.image {
                     Image(decorative: image, scale: 1)
                         .resizable()

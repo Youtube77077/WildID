@@ -15,8 +15,12 @@ final class TaxonomyTests: XCTestCase {
     func testRarityThresholds() {
         XCTAssertEqual(Rarity.from(localObservations: 5000), .common)
         XCTAssertEqual(Rarity.from(localObservations: 120), .uncommon)
-        XCTAssertEqual(Rarity.from(localObservations: 12), .rare)
-        XCTAssertEqual(Rarity.from(localObservations: 0), .veryRare)
+        XCTAssertEqual(Rarity.from(localObservations: 40), .rare)
+        XCTAssertEqual(Rarity.from(localObservations: 12), .epic)
+        XCTAssertEqual(Rarity.from(localObservations: 0), .legendary)
+        XCTAssertEqual(Rarity.from(localObservations: 5000, conservationCode: "EN"), .epic)
+        XCTAssertEqual(Rarity.from(localObservations: 5000, conservationCode: "CR"), .legendary)
+        XCTAssertEqual(Rarity(storedValue: "veryRare"), .epic)
     }
 
     func testVisionLabelMatchingUsesWholeWords() {
@@ -206,5 +210,85 @@ final class CollectionTests: XCTestCase {
         XCTAssertEqual(list.first { $0.id == "species-1" }?.unlocked, true)
         XCTAssertEqual(list.first { $0.id == "first-birds" }?.unlocked, true)
         XCTAssertEqual(list.first { $0.id == "first-mammals" }?.unlocked, false)
+    }
+}
+
+
+@MainActor
+final class GameRulesTests: XCTestCase {
+    private func makeManager() throws -> (CollectionManager, ModelContainer) {
+        let schema = Schema([WildIndexEntry.self, Catch.self, SavedRecording.self, RecordingDetection.self])
+        let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let settings = AppSettings()
+        settings.newAnimalPopups = false
+        settings.haptics = false
+        return (CollectionManager(context: container.mainContext, toasts: ToastCenter(), settings: settings), container)
+    }
+
+    func testLevelCurve() {
+        XCTAssertEqual(XPRules.level(forXP: 0), 1)
+        XCTAssertEqual(XPRules.level(forXP: 74), 1)
+        XCTAssertEqual(XPRules.level(forXP: 75), 2)
+        XCTAssertEqual(XPRules.level(forXP: 750), 5)
+        XCTAssertEqual(XPRules.level(forXP: 3375), 10)
+        XCTAssertEqual(XPRules.level(forXP: 10_000_000), XPRules.maxLevel)
+    }
+
+    func testRepeatCatchesCannotBeFarmed() throws {
+        let (m, c) = try makeManager()
+        _ = c
+        let fox = SpeciesRef(scientificName: "Vulpes vulpes", commonName: "Red Fox", group: .mammals)
+        let first = m.addCatch(fox, method: .sound, confidence: 0.9, place: nil, coordinate: nil, announce: false)
+        XCTAssertEqual(first?.entry.xp, XPRules.firstCatchXP(.common))
+        // Immediately again: inside the 1 hour cooldown → no XP, but the catch is still logged.
+        m.addCatch(fox, method: .sound, confidence: 0.9, place: nil, coordinate: nil, announce: false)
+        let entry = try XCTUnwrap(m.entry(for: "Vulpes vulpes"))
+        XCTAssertEqual(entry.catches.count, 2)
+        XCTAssertEqual(entry.xp, XPRules.firstCatchXP(.common))
+    }
+
+    func testCooldownAndDailyCap() throws {
+        let (m, c) = try makeManager()
+        _ = c
+        let robin = SpeciesRef(scientificName: "Erithacus rubecula", commonName: "European Robin", group: .birds)
+        m.addCatch(robin, method: .sound, confidence: 0.9, place: nil, coordinate: nil, announce: false)
+        let entry = try XCTUnwrap(m.entry(for: "Erithacus rubecula"))
+        // Pretend the earlier catch was rewarded 2 hours ago, so the cooldown has passed.
+        entry.catches.forEach { $0.awardedAt = Date().addingTimeInterval(-7200) }
+        let now = Date()
+        XCTAssertEqual(XPRules.award(method: .sound, tier: .common, isFirst: false, previous: entry.catches, now: now), XPRules.repeatXP(.common))
+        XCTAssertEqual(XPRules.award(method: .manual, tier: .common, isFirst: false, previous: entry.catches, now: now), 5)
+        // Three rewarded repeats today → the fourth earns nothing.
+        let ctx = c.mainContext
+        for h in [5, 4, 3] {
+            let extra = Catch(date: now, coordinate: nil, placeName: nil, countryCode: nil, method: .sound, confidence: 0.9)
+            extra.xpAwarded = 20
+            extra.awardedAt = Calendar.current.startOfDay(for: now).addingTimeInterval(Double(h) * 60)
+            ctx.insert(extra)
+            extra.entry = entry
+        }
+        XCTAssertEqual(XPRules.award(method: .sound, tier: .common, isFirst: false, previous: entry.catches, now: now), 0)
+    }
+
+    func testNicknameAndBackupRoundTrip() throws {
+        let (m, c) = try makeManager()
+        let heron = SpeciesRef(scientificName: "Ardea cinerea", commonName: "Grey Heron", group: .birds)
+        m.addCatch(heron, method: .photo, confidence: nil, place: nil, coordinate: nil, announce: false)
+        let entry = try XCTUnwrap(m.entry(for: "Ardea cinerea"))
+        m.rename(entry, to: "  Sir Stilts  ")
+        XCTAssertEqual(entry.displayName, "Sir Stilts")
+        let store = BackupStore.shared
+        store.backupNow(context: c.mainContext)
+        let backup = try XCTUnwrap(store.loadBackup())
+        XCTAssertEqual(backup.entries.first?.nickname, "Sir Stilts")
+        XCTAssertEqual(backup.entries.first?.catches.count, 1)
+        // Restore into an empty store, as after reinstalling the app.
+        let schema = Schema([WildIndexEntry.self, Catch.self, SavedRecording.self, RecordingDetection.self])
+        let fresh = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        XCTAssertEqual(store.restoreIfNeeded(context: fresh.mainContext), 1)
+        let restored = try fresh.mainContext.fetch(FetchDescriptor<WildIndexEntry>())
+        XCTAssertEqual(restored.first?.displayName, "Sir Stilts")
+        XCTAssertEqual(restored.first?.xp, entry.xp)
+        store.deleteBackup()
     }
 }

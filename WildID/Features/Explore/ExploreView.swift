@@ -3,6 +3,8 @@ import SwiftData
 import SwiftUI
 
 struct ExploreView: View {
+    /// When pushed inside another navigation stack (from Home) it doesn't create its own.
+    var embedded = false
     @Environment(LocationService.self) private var location
     @Environment(AppSettings.self) private var settings
     @Environment(Connectivity.self) private var connectivity
@@ -26,6 +28,7 @@ struct ExploreView: View {
     @State private var search = ""
     @State private var searchResults: [INatTaxon] = []
     @State private var searching = false
+    @State private var gbifResults: [GBIFAPI.SpeciesHit] = []
     @State private var items: [INatSpeciesCount] = []
     @State private var total = 0
     @State private var page = 1
@@ -49,7 +52,14 @@ struct ExploreView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        if embedded {
+            content
+        } else {
+            NavigationStack { content.wildDestinations() }
+        }
+    }
+
+    private var content: some View {
             List {
                 if !connectivity.isOnline {
                     OfflineBanner().listRowInsets(EdgeInsets()).listRowSeparator(.hidden)
@@ -74,7 +84,10 @@ struct ExploreView: View {
                                 SpeciesRow(commonName: item.taxon.commonName, scientificName: item.taxon.name,
                                            photoURL: item.taxon.thumbURL, group: item.taxon.group,
                                            inIndex: caughtKeys.contains(item.taxon.name.lowercased()),
-                                           trailing: AnyView(LikelihoodBar(value: Double(item.count) / Double(maxCount))),
+                                           trailing: AnyView(VStack(alignment: .trailing, spacing: 6) {
+                                               TierBadge(tier: Rarity.fromSeasonalCount(item.count), compact: true)
+                                               LikelihoodBar(value: Double(item.count) / Double(maxCount))
+                                           }),
                                            showScientific: settings.showScientificNames)
                             }
                             .onAppear {
@@ -100,8 +113,6 @@ struct ExploreView: View {
             .task(id: "\(place?.name ?? "-")|\(group?.rawValue ?? "all")|\(season.rawValue)") { await load(reset: true) }
             .task(id: search) { await runSearch() }
             .refreshable { await load(reset: true) }
-            .wildDestinations()
-        }
     }
 
     private var header: some View {
@@ -148,7 +159,17 @@ struct ExploreView: View {
                                showScientific: true)
                 }
             }
-            if !searching && searchResults.isEmpty && search.count >= 2 {
+            if !gbifResults.isEmpty {
+                Text("More names from GBIF — species known to science, often without photos yet")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.secondaryText)
+                ForEach(gbifResults) { g in
+                    NavigationLink(value: SpeciesRef(scientificName: g.name, commonName: g.commonName ?? g.name, group: g.group)) {
+                        SpeciesRow(commonName: g.commonName ?? g.name, scientificName: g.name, photoURL: nil, group: g.group,
+                                   detail: g.class.map { "GBIF · \($0)" } ?? "GBIF", showScientific: true)
+                    }
+                }
+            }
+            if !searching && searchResults.isEmpty && gbifResults.isEmpty && search.count >= 2 {
                 Text("No animals found for “\(search)”.").foregroundStyle(Theme.secondaryText)
             }
         } header: {
@@ -222,11 +243,17 @@ struct ExploreView: View {
 
     private func runSearch() async {
         let q = search.trimmingCharacters(in: .whitespaces)
-        guard q.count >= 2 else { searchResults = []; return }
+        guard q.count >= 2 else { searchResults = []; gbifResults = []; return }
         searching = true
         try? await Task.sleep(nanoseconds: 300_000_000)
         guard !Task.isCancelled else { return }
         searchResults = (try? await api.search(q, group: group)) ?? []
+        if searchResults.count < 8 {
+            let known = Set(searchResults.map { $0.name.lowercased() })
+            gbifResults = ((try? await GBIFAPI().searchSpecies(q)) ?? []).filter { !known.contains($0.name.lowercased()) }.prefix(15).map { $0 }
+        } else {
+            gbifResults = []
+        }
         searching = false
     }
 }
@@ -254,5 +281,6 @@ extension View {
         self
             .navigationDestination(for: SpeciesRef.self) { SpeciesProfileView(species: $0) }
             .navigationDestination(for: WildIndexEntryRoute.self) { WildIndexEntryView(entryKey: $0.key) }
+            .navigationDestination(for: PetRoute.self) { PetDetailView(entryKey: $0.key) }
     }
 }

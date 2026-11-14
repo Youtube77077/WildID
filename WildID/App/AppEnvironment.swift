@@ -3,14 +3,18 @@ import SwiftData
 import SwiftUI
 import CoreLocation
 
-enum AppTab: Hashable { case home, identify, map, wildIndex, explore }
+enum AppTab: Hashable { case home, identify, map, wildIndex, pets }
+
+struct ExploreRoute: Hashable {}
 
 /// App-wide navigation requests (e.g. a toast opening a species, Home opening Sound ID).
 @MainActor
 @Observable
 final class Router {
     var tab: AppTab = .home
+    var homePath = NavigationPath()
     var presentedSpecies: SpeciesRef?
+    var presentedPetKey: String?
     var showSoundID = false
     var showPhotoID = false
     var showGuidedID = false
@@ -71,6 +75,7 @@ final class AppEnvironment {
     let toasts = ToastCenter()
     let router = Router()
     let nearby = NearbyStore()
+    let daily = DailyAnimalStore()
     let sound = SoundIDSession()
     let collection: CollectionManager
 
@@ -80,6 +85,15 @@ final class AppEnvironment {
         sound.location = location
         sound.settings = settings
         Self.cleanupStaleLiveSessions()
+        // Fresh install on this iPhone? Bring back the Wild Index saved in the device Keychain.
+        let backup = BackupStore.shared
+        let inMemory = container.configurations.contains { $0.isStoredInMemoryOnly }
+        if !inMemory, backup.restoreIfNeeded(context: container.mainContext) == 0, !backup.hasBackup {
+            backup.backupNow(context: container.mainContext)
+        }
+        if inMemory && ProcessInfo.processInfo.arguments.contains("-wildid-demo-data") {
+            Task { await DemoData.seed(collection: collection) }
+        }
     }
 
     /// Unsaved session audio from a previous launch (e.g. the app was killed) is removed.

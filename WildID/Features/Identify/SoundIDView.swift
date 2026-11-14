@@ -68,7 +68,7 @@ struct SoundIDView: View {
             Text("12 kHz"); Spacer(); Text("6"); Spacer(); Text("0")
         }
         .font(.system(size: 9, weight: .medium).monospacedDigit())
-        .foregroundStyle(Theme.secondaryText.opacity(0.8))
+        .foregroundStyle(.white.opacity(0.6))
         .padding(.vertical, 4)
         .padding(.leading, 6)
         .frame(height: 150)

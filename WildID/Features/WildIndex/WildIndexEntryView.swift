@@ -75,6 +75,19 @@ struct WildIndexEntryView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
 
+                NavigationLink(value: PetRoute(key: entry.key)) {
+                    HStack {
+                        Image(systemName: "pawprint.fill")
+                        Text("Pet Index · Lv \(entry.level) · \(entry.xp) XP")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(14)
+                    .background(entry.tier.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
                 Text("Journal").font(.wildTitle)
                 ForEach(entry.sortedCatches) { c in
                     CatchRow(catchItem: c, entry: entry)
@@ -154,7 +167,7 @@ struct CatchRow: View {
         .wildCard(padding: 14)
         .alert("Notes", isPresented: $editingNotes) {
             TextField("Notes", text: $notes)
-            Button("Save") { catchItem.notes = notes; try? collection.context.save() }
+            Button("Save") { catchItem.notes = notes; try? collection.context.save(); BackupStore.shared.scheduleBackup(context: collection.context) }
             Button("Cancel", role: .cancel) {}
         }
     }

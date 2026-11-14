@@ -165,12 +165,48 @@ struct LiveSpectrogramView: UIViewRepresentable {
     }
 }
 
+/// WildID's "night vision" colour map: deep teal background, mint signal, warm highlights.
+enum SpectrogramPalette {
+    static let identity: [UInt8] = (0..<256).map { UInt8($0) }
+
+    /// 256 RGBA colours (premultiplied, little-endian ABGR as UInt32 for RGBA byte order).
+    static let rgba: [UInt32] = (0..<256).map { i in
+        let v = pow(Double(i) / 255, 0.85)
+        let stops: [(Double, (Double, Double, Double))] = [
+            (0.00, (9, 34, 33)), (0.35, (22, 110, 96)), (0.65, (88, 226, 182)), (0.85, (190, 245, 190)), (1.00, (255, 236, 160)),
+        ]
+        var c = stops.last!.1
+        for k in 1..<stops.count where v <= stops[k].0 {
+            let (a, ca) = stops[k - 1], (b, cb) = stops[k]
+            let t = (v - a) / (b - a)
+            c = (ca.0 + (cb.0 - ca.0) * t, ca.1 + (cb.1 - ca.1) * t, ca.2 + (cb.2 - ca.2) * t)
+            break
+        }
+        return UInt32(255) << 24 | UInt32(c.2) << 16 | UInt32(c.1) << 8 | UInt32(c.0)
+    }
+
+    static func image(gray: [UInt8], width: Int, height: Int, rgbaBuffer: inout [UInt32]) -> CGImage? {
+        if rgbaBuffer.count != gray.count { rgbaBuffer = [UInt32](repeating: 0, count: gray.count) }
+        gray.withUnsafeBufferPointer { g in
+            rgbaBuffer.withUnsafeMutableBufferPointer { out in
+                for i in 0..<g.count { out[i] = rgba[Int(g[i])] }
+            }
+        }
+        let data = rgbaBuffer.withUnsafeBufferPointer { Data(buffer: $0) }
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+                       space: CGColorSpaceCreateDeviceRGB(),
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+    }
+}
+
 final class SpectrogramUIView: UIView {
     private let processor: SpectrogramProcessor
     private var link: CADisplayLink?
     private var pixels: [UInt8]
+    private var rgba: [UInt32] = []
     private var lastColumns = -1
-    private var lut: [UInt8] = []
 
     init(processor: SpectrogramProcessor) {
         self.processor = processor
@@ -179,26 +215,11 @@ final class SpectrogramUIView: UIView {
         layer.contentsGravity = .resize
         layer.magnificationFilter = .linear
         layer.minificationFilter = .trilinear
+        backgroundColor = UIColor(red: 9 / 255, green: 34 / 255, blue: 33 / 255, alpha: 1)
         isOpaque = true
-        rebuildLUT()
-        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: SpectrogramUIView, _: UITraitCollection) in
-            view.rebuildLUT()
-            view.lastColumns = -1
-            view.render(force: true)
-        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
-
-    /// Light mode: pale paper background with dark marks. Dark mode: inverted.
-    private func rebuildLUT() {
-        let dark = traitCollection.userInterfaceStyle == .dark
-        lut = (0..<256).map { i in
-            let v = Double(i) / 255
-            if dark { return UInt8(28 + v * (245 - 28)) }
-            return UInt8(244 - v * (244 - 18))
-        }
-    }
 
     func setActive(_ active: Bool) {
         if active, link == nil {
@@ -219,15 +240,8 @@ final class SpectrogramUIView: UIView {
         let total = processor.totalColumns
         if !force && total == lastColumns { return }
         lastColumns = total
-        _ = processor.snapshot(into: &pixels, lut: lut)
-        let width = processor.capacity, height = processor.rows
-        let data = Data(pixels)
-        guard let provider = CGDataProvider(data: data as CFData),
-              let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8,
-                                  bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
-                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-                                  provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
-        else { return }
+        _ = processor.snapshot(into: &pixels, lut: SpectrogramPalette.identity)
+        guard let image = SpectrogramPalette.image(gray: pixels, width: processor.capacity, height: processor.rows, rgbaBuffer: &rgba) else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer.contents = image
@@ -244,14 +258,8 @@ enum StaticSpectrogram {
         p.reset(keepNoiseFloor: true)
         samples.withUnsafeBufferPointer { p.append($0) }
         var pixels = [UInt8](repeating: 0, count: p.rows * p.capacity)
-        let lut: [UInt8] = (0..<256).map { i in
-            let v = Double(i) / 255
-            return dark ? UInt8(28 + v * 217) : UInt8(244 - v * 226)
-        }
-        _ = p.snapshot(into: &pixels, lut: lut)
-        guard let provider = CGDataProvider(data: Data(pixels) as CFData) else { return nil }
-        return CGImage(width: p.capacity, height: p.rows, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: p.capacity,
-                       space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
-                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+        _ = p.snapshot(into: &pixels, lut: SpectrogramPalette.identity)
+        var buffer: [UInt32] = []
+        return SpectrogramPalette.image(gray: pixels, width: p.capacity, height: p.rows, rgbaBuffer: &buffer)
     }
 }

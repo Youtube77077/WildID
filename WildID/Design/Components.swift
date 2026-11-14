@@ -162,17 +162,7 @@ struct Pill: View {
 
 struct RarityBadge: View {
     let rarity: Rarity
-    var body: some View {
-        Pill(text: rarity.title, symbol: rarity == .common ? "circle.fill" : "sparkle", tint: color, filled: rarity == .veryRare)
-    }
-    var color: Color {
-        switch rarity {
-        case .common: Color.gray
-        case .uncommon: Theme.fern
-        case .rare: Color(red: 0.25, green: 0.45, blue: 0.85)
-        case .veryRare: Color(red: 0.62, green: 0.32, blue: 0.85)
-        }
-    }
+    var body: some View { TierBadge(tier: rarity, compact: true) }
 }
 
 /// IUCN Red List category badge.

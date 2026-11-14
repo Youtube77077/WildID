@@ -4,10 +4,10 @@ import SwiftUI
 enum Theme {
     // Brand
     static let moss = Color("Moss")                  // primary brand green
-    static let mossDeep = Color(red: 0.13, green: 0.36, blue: 0.24)
-    static let fern = Color(red: 0.36, green: 0.62, blue: 0.40)
+    static let mossDeep = Color(red: 0.05, green: 0.27, blue: 0.25)
+    static let fern = Color(red: 0.30, green: 0.66, blue: 0.56)
     /// Pale green surface (adapts to dark mode so text stays readable).
-    static let lichen = Color(light: Color(red: 0.92, green: 0.95, blue: 0.92), dark: Color(red: 0.13, green: 0.17, blue: 0.14))
+    static let lichen = Color(light: Color(red: 0.91, green: 0.96, blue: 0.95), dark: Color(red: 0.10, green: 0.17, blue: 0.16))
     static let sunlight = Color(red: 1.00, green: 0.87, blue: 0.35) // brand yellow (toasts, badges)
     /// Row highlight for newly detected species.
     static let newHighlight = Color(light: Color(red: 1.00, green: 0.87, blue: 0.35).opacity(0.55),
@@ -39,8 +39,8 @@ extension Color {
 
 extension Font {
     /// Large, heavy screen titles in the style of the reference screenshots.
-    static let wildLargeTitle = Font.system(size: 34, weight: .heavy, design: .default)
-    static let wildTitle = Font.system(size: 24, weight: .bold, design: .default)
+    static let wildLargeTitle = Font.system(size: 34, weight: .heavy, design: .rounded)
+    static let wildTitle = Font.system(size: 24, weight: .bold, design: .rounded)
     static let wildHeadline = Font.system(size: 17, weight: .semibold)
     static let wildCaps = Font.system(size: 12, weight: .bold).width(.standard)
 }

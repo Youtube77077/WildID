@@ -250,6 +250,43 @@ struct GBIFAPI {
         return try await http.get(R.self, from: url, maxAge: 60 * 60 * 24 * 7).count
     }
 
+    struct SpeciesHit: Decodable, Identifiable, Hashable {
+        struct Vernacular: Decodable, Hashable { let vernacularName: String?; let language: String? }
+        let key: Int
+        let canonicalName: String?
+        let scientificName: String?
+        let `class`: String?
+        let vernacularNames: [Vernacular]?
+        var id: Int { key }
+        var name: String { canonicalName ?? scientificName ?? "Unknown" }
+        var commonName: String? { vernacularNames?.first { $0.language == "eng" }?.vernacularName }
+        var group: AnimalGroup {
+            switch `class` {
+            case "Aves": .birds
+            case "Mammalia": .mammals
+            case "Reptilia", "Squamata", "Testudines", "Crocodylia": .reptiles
+            case "Amphibia": .amphibians
+            case "Actinopterygii", "Elasmobranchii": .fish
+            case "Insecta": .insects
+            case "Arachnida": .arachnids
+            case "Gastropoda", "Bivalvia", "Cephalopoda": .molluscs
+            case "Malacostraca", "Maxillopoda", "Branchiopoda", "Ostracoda": .crustaceans
+            default: .other
+            }
+        }
+    }
+
+    /// Searches the GBIF backbone (≈1.5 million accepted animal species) — a fallback for
+    /// animals that have no iNaturalist page or photos yet.
+    func searchSpecies(_ query: String, limit: Int = 20) async throws -> [SpeciesHit] {
+        let url = URL.build("https://api.gbif.org/v1/species/search", [
+            "q": query, "rank": "SPECIES", "status": "ACCEPTED", "highertaxonKey": "1",
+            "datasetKey": "d7dddbf4-2cf0-4f39-9b2a-bb099caae36c", "limit": String(limit),
+        ])
+        struct R: Decodable { let results: [SpeciesHit] }
+        return try await http.get(R.self, from: url, maxAge: 60 * 60 * 24).results
+    }
+
     /// Occurrence density hexagons rendered by GBIF's map API.
     static func densityTileTemplate(taxonKey: Int) -> String {
         "https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@2x.png?taxonKey=\(taxonKey)&bin=hex&hexPerTile=48&style=classic.poly"

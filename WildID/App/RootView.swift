@@ -14,25 +14,25 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             TabView(selection: $router.tab) {
                 HomeView()
-                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tabItem { Label("Home", systemImage: "leaf.fill") }
                     .tag(AppTab.home)
-                IdentifyView()
-                    .tabItem { Label("Identify", systemImage: "questionmark.circle.fill") }
-                    .tag(AppTab.identify)
                 WildMapView()
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(AppTab.map)
+                IdentifyView()
+                    .tabItem { Label("Identify", systemImage: "waveform.circle.fill") }
+                    .tag(AppTab.identify)
                 WildIndexView()
-                    .tabItem { Label("Wild Index", systemImage: "square.grid.2x2.fill") }
+                    .tabItem { Label("Wild Index", systemImage: "photo.stack.fill") }
                     .tag(AppTab.wildIndex)
-                ExploreView()
-                    .tabItem { Label("Explore", systemImage: "magnifyingglass") }
-                    .tag(AppTab.explore)
+                PetsView()
+                    .tabItem { Label("Pets", systemImage: "pawprint.fill") }
+                    .tag(AppTab.pets)
             }
 
             if let event = toasts.current, !router.showSoundID, !router.showPhotoID, !router.showGuidedID {
                 NewAnimalToast(event: event, onTap: {
-                    router.presentedSpecies = event.species
+                    if event.kind == .levelUp { router.presentedPetKey = event.species.id } else { router.presentedSpecies = event.species }
                     toasts.dismissCurrent()
                 }, onDismiss: { toasts.dismissCurrent() })
                 .padding(.bottom, 62)
@@ -57,6 +57,13 @@ struct RootView: View {
                             Button("Close") { router.presentedSpecies = nil }
                         }
                     }
+            }
+        }
+        .sheet(item: Binding(get: { router.presentedPetKey.map(PetRoute.init(key:)) }, set: { router.presentedPetKey = $0?.key })) { route in
+            NavigationStack {
+                PetDetailView(entryKey: route.key)
+                    .wildDestinations()
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { router.presentedPetKey = nil } } }
             }
         }
         .fullScreenCover(isPresented: $router.showSoundID) {
@@ -93,8 +100,15 @@ struct RootView: View {
         case "identify": router.tab = .identify
         case "map": router.tab = .map
         case "index": router.tab = .wildIndex
-        case "explore": router.tab = .explore
+        case "explore": router.tab = .home; router.homePath.append(ExploreRoute())
+        case "pets": router.tab = .pets
         default: break
+        }
+        if let name = value("-wildid-pet") {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 9_000_000_000)   // let demo data resolve first
+                router.presentedPetKey = name.lowercased()
+            }
         }
         if let name = value("-wildid-species") {
             router.presentedSpecies = SpeciesRef(scientificName: name, commonName: name, group: .other)

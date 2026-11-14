@@ -30,8 +30,7 @@ struct WildIndexView: View {
         case .name: list.sort { $0.commonName.localizedCaseInsensitiveCompare($1.commonName) == .orderedAscending }
         case .group: list.sort { ($0.groupRaw, $0.familyName ?? "", $0.commonName) < ($1.groupRaw, $1.familyName ?? "", $1.commonName) }
         case .rarity:
-            let order: [Rarity?] = [.veryRare, .rare, .uncommon, .common, nil]
-            list.sort { (order.firstIndex(of: $0.rarity) ?? 9) < (order.firstIndex(of: $1.rarity) ?? 9) }
+            list.sort { ($0.rarity?.rank ?? -1) > ($1.rarity?.rank ?? -1) }
         case .mostCaught: list.sort { $0.catches.count > $1.catches.count }
         }
         return list

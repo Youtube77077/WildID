@@ -46,7 +46,7 @@ jobs:
           for s in location microphone photos camera; do xcrun simctl privacy "$UDID" grant $s "$BUNDLE" || true; done
           xcrun simctl location "$UDID" set 52.4588,5.0307
       - name: Capture screens
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           mkdir -p docs/screenshots
           shot() {
@@ -56,21 +56,20 @@ jobs:
             sleep ${WAIT:-14}
             xcrun simctl io "$UDID" screenshot "docs/screenshots/$name.png"
           }
-          WAIT=20 shot 01-home
-          shot 02-identify -wildid-tab identify
-          WAIT=20 shot 03-map -wildid-tab map
-          shot 04-wild-index -wildid-tab index
-          WAIT=20 shot 05-explore -wildid-tab explore
-          WAIT=22 shot 06-species -wildid-species "Erithacus rubecula"
-          WAIT=22 shot 07-species-parakeet -wildid-species "Myiopsitta monachus"
-          WAIT=12 shot 08-sound-id -wildid-open sound
-          shot 09-step-by-step -wildid-open guided
-          shot 10-photo-id -wildid-open photo
-          shot 11-settings -wildid-open settings
-          xcrun simctl terminate "$UDID" "$BUNDLE" || true
-          xcrun simctl launch "$UDID" "$BUNDLE"
-          sleep 6
-          xcrun simctl io "$UDID" screenshot docs/screenshots/00-onboarding-or-home.png
+          rm -f docs/screenshots/*.png
+          D=-wildid-demo-data
+          WAIT=24 shot 01-home $D
+          WAIT=12 shot 02-identify $D -wildid-tab identify
+          WAIT=24 shot 03-map $D -wildid-tab map
+          WAIT=22 shot 04-wild-index $D -wildid-tab index
+          WAIT=22 shot 05-pet-index $D -wildid-tab pets
+          WAIT=26 shot 06-pet-detail $D -wildid-pet "Erithacus rubecula"
+          WAIT=22 shot 07-explore $D -wildid-tab explore
+          WAIT=22 shot 08-species $D -wildid-species "Vulpes vulpes"
+          WAIT=12 shot 09-sound-id $D -wildid-open sound
+          WAIT=10 shot 10-step-by-step $D -wildid-open guided
+          WAIT=10 shot 11-photo-id $D -wildid-open photo
+          WAIT=10 shot 12-settings $D -wildid-open settings
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
         run: |

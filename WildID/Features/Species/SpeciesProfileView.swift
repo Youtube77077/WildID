@@ -50,8 +50,10 @@ struct SpeciesProfileView: View {
                     sourcesSection
                 }
                 .padding(.horizontal, Theme.gutter)
-                .padding(.top, 18)
+                .padding(.top, 22)
                 .padding(.bottom, 110)
+                .background(Theme.background, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
+                .offset(y: -28)
             }
         }
         .ignoresSafeArea(edges: .top)
@@ -128,7 +130,9 @@ struct SpeciesProfileView: View {
                 }
                 Spacer()
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
+            .padding(.bottom, 38)
             .background(LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .top, endPoint: .bottom))
         }
         .frame(height: 380)
@@ -138,11 +142,11 @@ struct SpeciesProfileView: View {
                     .font(.system(size: 15, weight: .medium).monospacedDigit())
                     .padding(.horizontal, 12).padding(.vertical, 6)
                     .background(Theme.lichen, in: Capsule())
-                    .padding(12)
-                    .offset(y: 46)
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 40)
             }
         }
-        .padding(.bottom, model.photos.count > 1 ? 24 : 0)
+
     }
 
     // MARK: Title
@@ -152,7 +156,7 @@ struct SpeciesProfileView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(species.isGroupLevel ? "\(name) (group)" : name)
-                        .font(.system(size: 34, weight: .heavy))
+                        .font(.system(size: 34, weight: .heavy, design: .rounded))
                         .fixedSize(horizontal: false, vertical: true)
                     ScientificName(name: scientific, font: .title3)
                 }

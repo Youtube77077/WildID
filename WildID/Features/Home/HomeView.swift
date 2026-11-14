@@ -7,28 +7,32 @@ struct HomeView: View {
     @Environment(NearbyStore.self) private var nearby
     @Environment(LocationService.self) private var location
     @Environment(Connectivity.self) private var connectivity
+    @Environment(DailyAnimalStore.self) private var daily
     @Query(sort: \WildIndexEntry.lastCaughtAt, order: .reverse) private var entries: [WildIndexEntry]
     @Query(sort: \SavedRecording.startedAt, order: .reverse) private var recordings: [SavedRecording]
     @State private var page = 0
     @State private var sightings: [INatObservation] = []
 
     var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+        NavigationStack(path: $router.homePath) {
             ScrollView {
                 VStack(spacing: 0) {
                     if !connectivity.isOnline { OfflineBanner() }
                     header
-                    hero
-                    statsLine
-                        .padding(.top, 18)
-                    actions
-                        .padding(.top, 22)
-                    sessionsButton
+                    searchEntry
                         .padding(.horizontal, Theme.gutter)
-                        .padding(.top, 24)
+                    dailyCard
+                        .padding(.horizontal, Theme.gutter)
+                        .padding(.top, 16)
+                    actions
+                        .padding(.horizontal, Theme.gutter)
+                        .padding(.top, 16)
+                    statChips
+                        .padding(.top, 18)
                     progressCard
                         .padding(.horizontal, Theme.gutter)
-                        .padding(.top, 28)
+                        .padding(.top, 24)
                     nearbySection
                         .padding(.top, 28)
                     if !entries.isEmpty {
@@ -42,6 +46,9 @@ struct HomeView: View {
                         .padding(.top, 28)
                     recentSightings
                         .padding(.top, 28)
+                    sessionsButton
+                        .padding(.horizontal, Theme.gutter)
+                        .padding(.top, 24)
                         .padding(.bottom, 40)
                 }
             }
@@ -53,118 +60,188 @@ struct HomeView: View {
                 await loadSightings()
             }
             .task(id: location.activePlace?.name) { await loadSightings() }
+            .task { await daily.load() }
+            .navigationDestination(for: ExploreRoute.self) { _ in ExploreView(embedded: true) }
         }
     }
 
     // MARK: Sections
 
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5..<12: "Good morning"
+        case 12..<18: "Good afternoon"
+        case 18..<23: "Good evening"
+        default: "Night owl hours"
+        }
+    }
+
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image("WildMark")
-                .resizable()
-                .renderingMode(.template)
-                .foregroundStyle(Theme.moss)
-                .frame(width: 40, height: 40)
-            Text("WildID")
-                .font(.system(size: 36, weight: .heavy, design: .rounded))
-                .foregroundStyle(.primary)
+        let totalXP = entries.reduce(0) { $0 + $1.xp }
+        let level = XPRules.explorerLevel(totalXP: totalXP)
+        return HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image("WildMark").resizable().renderingMode(.template).foregroundStyle(Theme.moss).frame(width: 22, height: 22)
+                    Text("WildID").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(Theme.moss)
+                }
+                Text(greeting).font(.system(size: 30, weight: .heavy, design: .rounded))
+            }
             Spacer()
+            Button { router.tab = .pets } label: {
+                HStack(spacing: 6) {
+                    ZStack {
+                        Circle().stroke(Theme.sunlight.opacity(0.3), lineWidth: 3)
+                        Circle().trim(from: 0, to: level.fraction).stroke(Theme.sunlight, style: StrokeStyle(lineWidth: 3, lineCap: .round)).rotationEffect(.degrees(-90))
+                        Text("\(level.level)").font(.system(size: 13, weight: .heavy, design: .rounded))
+                    }
+                    .frame(width: 30, height: 30)
+                    Text("Explorer").font(.system(size: 13, weight: .bold, design: .rounded))
+                }
+                .padding(.leading, 4).padding(.trailing, 10).padding(.vertical, 4)
+                .background(Theme.card, in: Capsule())
+            }
+            .tint(.primary)
+            .accessibilityLabel("Explorer level \(level.level)")
             Button { router.showSettings = true } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 20, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(Theme.softFill, in: Circle())
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .background(Theme.card, in: Circle())
             }
             .tint(.primary)
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal, Theme.gutter)
         .padding(.top, 8)
-        .padding(.bottom, 16)
+        .padding(.bottom, 14)
     }
 
-    private var heroItems: [(caption: String, taxon: INatTaxon?, entry: WildIndexEntry?)] {
-        var items: [(String, INatTaxon?, WildIndexEntry?)] = []
-        items.append(("Your animal of the day", nearby.animalOfTheDay(), nil))
-        if let latest = entries.first { items.append(("Latest catch", nil, latest)) }
-        if let other = nearby.animalOfTheDay(offset: 1) { items.append(("Look out for", other, nil)) }
-        return items
-    }
-
-    private var hero: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $page) {
-                ForEach(Array(heroItems.enumerated()), id: \.offset) { index, item in
-                    heroCard(caption: item.caption, taxon: item.taxon, entry: item.entry)
-                        .tag(index)
-                }
+    private var searchEntry: some View {
+        NavigationLink(value: ExploreRoute()) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass").foregroundStyle(Theme.secondaryText)
+                Text("Search or explore animals").foregroundStyle(Theme.secondaryText)
+                Spacer()
+                Image(systemName: "binoculars.fill").foregroundStyle(Theme.moss)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 420)
-            HStack(spacing: 8) {
-                ForEach(0..<heroItems.count, id: \.self) { i in
-                    Circle()
-                        .fill(i == page ? Theme.moss : Theme.softFill)
-                        .frame(width: 8, height: 8)
-                }
-            }
-            .padding(.top, 12)
-        }
-    }
-
-    @ViewBuilder
-    private func heroCard(caption: String, taxon: INatTaxon?, entry: WildIndexEntry?) -> some View {
-        let ref: SpeciesRef? = taxon.map(SpeciesRef.init(taxon:)) ?? entry.map {
-            SpeciesRef(scientificName: $0.scientificName, commonName: $0.commonName, taxonID: $0.taxonID, photoURL: $0.photoURL, group: $0.group)
-        }
-        let photo = taxon?.default_photo?.sized("large") ?? entry?.photoURL.flatMap { URL(string: $0.absoluteString.replacingOccurrences(of: "/medium.", with: "/large.")) }
-        NavigationLink(value: ref ?? SpeciesRef(scientificName: "Animalia", commonName: "Animals", group: .other, isGroupLevel: true)) {
-            VStack(spacing: 0) {
-                RemoteImage(url: photo, maxPixel: 1400, placeholderSymbol: ref?.group.symbol ?? "pawprint.fill", tint: ref?.group.tint ?? Theme.fern)
-                    .frame(height: 330)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(caption).capsLabel()
-                    Text(ref?.commonName ?? (nearby.isLoading ? "Finding animals near you…" : "Enable location to discover animals"))
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Theme.gutter)
-                .padding(.vertical, 16)
-                .background(Theme.lichen.opacity(0.6))
-            }
+            .font(.system(size: 16, weight: .medium, design: .rounded))
+            .padding(.horizontal, 14).padding(.vertical, 13)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(ref == nil)
     }
 
-    private var statsLine: some View {
-        HStack(spacing: 10) {
-            Rectangle().fill(Theme.hairline).frame(height: 1)
-            HStack(spacing: 6) {
-                Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.moss)
-                Text("\(entries.count) species in your Wild Index")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Theme.secondaryText)
-                    .fixedSize()
+    private var dailyCard: some View {
+        let taxon = daily.animal
+        return NavigationLink(value: taxon.map(SpeciesRef.init(taxon:)) ?? SpeciesRef(scientificName: "Animalia", commonName: "Animals", group: .other, isGroupLevel: true)) {
+            ZStack(alignment: .bottomLeading) {
+                RemoteImage(url: taxon?.default_photo?.sized("large"), maxPixel: 1400,
+                            placeholderSymbol: taxon?.group.symbol ?? "pawprint.fill", tint: taxon?.group.tint ?? Theme.fern)
+                    .frame(height: 360)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                LinearGradient(colors: [.clear, .clear, .black.opacity(0.65)], startPoint: .top, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Label("ANIMAL OF THE DAY", systemImage: "sun.max.fill")
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .padding(.horizontal, 9).padding(.vertical, 5)
+                            .background(Theme.sunlight, in: Capsule())
+                            .foregroundStyle(Theme.mossDeep)
+                        if let t = taxon {
+                            Label(t.group.singular, systemImage: t.group.symbol)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .padding(.horizontal, 9).padding(.vertical, 5)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                    }
+                    Text(taxon?.commonName ?? (daily.loading ? "Finding today's animal…" : "Connect to meet today's animal"))
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    if let t = taxon {
+                        Text(t.name).font(.subheadline).italic().foregroundStyle(.white.opacity(0.85))
+                    }
+                }
+                .padding(18)
             }
-            Rectangle().fill(Theme.hairline).frame(height: 1)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                Button { Task { await daily.reroll() } } label: {
+                    Image(systemName: "dice.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .padding(12)
+                .accessibilityLabel("Show another random animal")
+            }
+            .shadow(color: .black.opacity(0.12), radius: 14, y: 8)
         }
-        .padding(.horizontal, Theme.gutter)
+        .buttonStyle(PressableStyle())
+        .disabled(taxon == nil)
     }
 
     private var actions: some View {
-        HStack(alignment: .top) {
-            CircleActionButton(title: "Step by Step", symbol: "list.bullet.clipboard") { router.showGuidedID = true }
-            Spacer()
-            CircleActionButton(title: "Sound", symbol: "mic.fill", prominent: true) { router.showSoundID = true }
-            Spacer()
-            CircleActionButton(title: "Photo", symbol: "camera.fill") { router.showPhotoID = true }
+        VStack(spacing: 12) {
+            Button { router.showSoundID = true } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 22, weight: .bold))
+                        .symbolEffect(.variableColor.iterative, options: .repeating)
+                        .frame(width: 48, height: 48)
+                        .background(.white.opacity(0.18), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Listen for animals").font(.system(size: 19, weight: .heavy, design: .rounded))
+                        Text("Sound ID · live, up to 3 hours").font(.system(size: 13, weight: .medium)).opacity(0.85)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).opacity(0.7)
+                }
+                .foregroundStyle(.white)
+                .padding(14)
+                .background(LinearGradient(colors: [Theme.moss, Theme.mossDeep], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: Theme.moss.opacity(0.35), radius: 12, y: 6)
+            }
+            .buttonStyle(PressableStyle())
+            HStack(spacing: 12) {
+                actionTile("Photo ID", "camera.fill", "Snap or pick a photo") { router.showPhotoID = true }
+                actionTile("Step by Step", "list.bullet.clipboard.fill", "Answer a few questions") { router.showGuidedID = true }
+            }
         }
-        .padding(.horizontal, 24)
+    }
+
+    private func actionTile(_ title: String, _ symbol: String, _ subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: symbol).font(.system(size: 20, weight: .bold)).foregroundStyle(Theme.moss)
+                    .frame(width: 40, height: 40).background(Theme.moss.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                Text(title).font(.system(size: 16, weight: .heavy, design: .rounded)).foregroundStyle(.primary)
+                Text(subtitle).font(.caption).foregroundStyle(Theme.secondaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    private var statChips: some View {
+        let catches = entries.reduce(0) { $0 + $1.catches.count }
+        let legendary = entries.filter { $0.tier >= .epic }.count
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                StatTile(value: "\(entries.count)", label: "species", symbol: "square.grid.2x2.fill")
+                StatTile(value: "\(catches)", label: "catches", symbol: "scope")
+                StatTile(value: "\(entries.reduce(0) { $0 + $1.xp }.formatted())", label: "total XP", symbol: "bolt.fill")
+                StatTile(value: "\(legendary)", label: "epic+", symbol: "crown.fill")
+                StatTile(value: "\(recordings.count)", label: "sessions", symbol: "waveform")
+            }
+            .padding(.horizontal, Theme.gutter)
+        }
     }
 
     private var sessionsButton: some View {
@@ -227,7 +304,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Nearby wildlife",
                           subtitle: location.activePlace.map { "Recently recorded near \($0.name)" },
-                          actionTitle: "See all") { router.tab = .explore }
+                          actionTitle: "See all") { router.homePath.append(ExploreRoute()) }
                 .padding(.horizontal, Theme.gutter)
             if location.activePlace == nil && nearby.species.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
