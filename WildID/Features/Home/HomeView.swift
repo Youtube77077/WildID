@@ -8,6 +8,7 @@ struct HomeView: View {
     @Environment(LocationService.self) private var location
     @Environment(Connectivity.self) private var connectivity
     @Environment(DailyAnimalStore.self) private var daily
+    @Environment(AccountStore.self) private var accounts
     @Query(sort: \WildIndexEntry.lastCaughtAt, order: .reverse) private var entries: [WildIndexEntry]
     @Query(sort: \SavedRecording.startedAt, order: .reverse) private var recordings: [SavedRecording]
     @State private var page = 0
@@ -85,7 +86,7 @@ struct HomeView: View {
                     Image("WildMark").resizable().renderingMode(.template).foregroundStyle(Theme.moss).frame(width: 22, height: 22)
                     Text("WildID").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(Theme.moss)
                 }
-                Text(greeting).font(.system(size: 28, weight: .heavy, design: .rounded))
+                Text(accounts.current.map { "\(greeting), \($0.greetingName)" } ?? greeting).font(.system(size: 28, weight: .heavy, design: .rounded))
                     .lineLimit(1).minimumScaleFactor(0.6)
             }
             .layoutPriority(1)

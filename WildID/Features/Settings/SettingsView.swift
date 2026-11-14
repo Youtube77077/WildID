@@ -11,6 +11,18 @@ struct SettingsView: View {
     @State private var pickingPlace = false
     @State private var xcKey = KeychainStore.read(.xenoCantoKey) ?? ""
     @State private var xcSaved = false
+    @Environment(AccountStore.self) private var accounts
+    @State private var editingName = false
+    @State private var newName = ""
+
+    /// Closes Settings, then signs out (the sign-in screen lists the accounts on this iPhone).
+    private func switchAccount() {
+        dismiss()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            accounts.signOut()
+        }
+    }
 
     var body: some View {
         @Bindable var settings = settings
@@ -18,13 +30,22 @@ struct SettingsView: View {
             Form {
                 Section {
                     HStack(spacing: 14) {
-                        Image("WildMark").resizable().renderingMode(.template).foregroundStyle(Theme.moss).frame(width: 44, height: 44)
+                        Text(String((accounts.current?.greetingName ?? "W").prefix(1)).uppercased())
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background(Theme.moss.gradient, in: Circle())
                         VStack(alignment: .leading) {
-                            Text("WildID").font(.title2.weight(.heavy))
-                            Text("\(entries.count) species in your Wild Index").foregroundStyle(Theme.secondaryText)
+                            Text(accounts.current?.greetingName ?? "WildID").font(.title2.weight(.heavy))
+                            Text("@\(accounts.current?.username ?? "") · \(entries.count) species").foregroundStyle(Theme.secondaryText)
                         }
                     }
                     .padding(.vertical, 4)
+                    Button("Change display name") { newName = accounts.current?.displayName ?? ""; editingName = true }
+                    Button("Switch account") { switchAccount() }
+                    Button("Sign out", role: .destructive) { switchAccount() }
+                } header: { Text("Account") } footer: {
+                    Text("Your account lives on this iPhone: no email and no verification. Each account has its own Wild Index and Wildlings.")
                 }
 
                 Section {
@@ -116,6 +137,11 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .alert("Display name", isPresented: $editingName) {
+                TextField("Display name", text: $newName)
+                Button("Save") { accounts.updateDisplayName(newName) }
+                Button("Cancel", role: .cancel) {}
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $pickingPlace) {

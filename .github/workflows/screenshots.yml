@@ -89,6 +89,8 @@ jobs:
           WAIT=14 shot 21-level-up $D -wildid-tab wildlings -wildid-demo-toast levelup
           WAIT=26 shot 22-wildling-kangaroo $D -wildid-pet "Macropus giganteus"
           WAIT=24 shot 23-profile $D -wildid-open profile
+          WAIT=8 shot 24-sign-in $D -wildid-auth signin
+          WAIT=8 shot 25-create-account $D -wildid-auth signup
           ls -la docs/screenshots
       - name: Commit screenshots to this branch
         run: |

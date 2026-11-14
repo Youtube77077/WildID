@@ -12,7 +12,8 @@ Tabs: **Home · Map · Wild Index · Wildlings**. Identification (Sound ID, Phot
 - **Wildlings** – every animal you catch also becomes a companion (with a built-in "How Wildlings work" guide): XP, levels 1–50, rarity tiers from **Common to Legendary** (based on how rarely it's recorded where you found it, boosted for threatened species), nicknames, favourites, a game-style card and detail page, and a slot for a 3D model. No battles, nothing to buy, and XP can't be farmed (see below).
 - **Photo ID** (species-level for 965 birds and 1,021 insects when the photo models are built; group-level + local candidates for everything else) and **Step by Step** guided identification.
 - **Profile** – tap the level ring on Home (or the Explorer card in Wildlings): level and rank, totals (species, catches, days out, best streak, countries, places, families, hours listened), highlights (rarest, top Wildling, most caught, first and latest), and breakdowns by rarity, animal group and method, plus catches per month.
-- **Survives reinstall** – your catches, XP, levels and nicknames are kept in this iPhone's Keychain (device-only, no account, never uploaded). Delete the app, install it again on the same phone → everything is back. Anyone else's phone starts empty.
+- **Accounts (sign up / sign in)** – a username and password, nothing else. There's no email and no verification code, and creating an account signs you in immediately. Accounts live on this iPhone (in the device-only Keychain, passwords stored as a salted PBKDF2 hash, never the password itself). Each account has its own Wild Index and Wildlings, so several people can share a phone. Forgot your password? Reset it after Face ID, Touch ID or the iPhone passcode. The first account you create keeps the catches you made before accounts existed. Accounts don't sync between devices: that would need a server (see the bottom of this README).
+- **Survives reinstall** – each account's catches, XP, levels and nicknames are kept in this iPhone's Keychain (device-only, never uploaded). Delete the app, install it again on the same phone, sign in, and everything is back. Anyone else's phone starts empty.
 
 > WildID needs an internet connection for species data, photos and maps. Your Wild Index, catches, clips, saved recordings and previously opened species pages stay available offline.
 
@@ -29,7 +30,8 @@ Captured automatically on the iOS Simulator by the *Simulator screenshots* workf
 | **Wildlings**<br><img src="docs/screenshots/13-wildlings.png" width="240"> | **Wildling detail**<br><img src="docs/screenshots/14-wildling-detail.png" width="240"> | **How Wildlings work**<br><img src="docs/screenshots/15-wildlings-guide.png" width="240"> |
 | **Explore**<br><img src="docs/screenshots/16-explore.png" width="240"> | **Species page**<br><img src="docs/screenshots/17-species.png" width="240"> | **Settings**<br><img src="docs/screenshots/18-settings.png" width="240"> |
 | **New animal pop-up**<br><img src="docs/screenshots/19-new-animal.png" width="240"> | **Pop-up during Sound ID**<br><img src="docs/screenshots/20-new-animal-during-sound-id.png" width="240"> | **Level up**<br><img src="docs/screenshots/21-level-up.png" width="240"> |
-| **Holiday catch: rarity near you vs. locked**<br><img src="docs/screenshots/22-wildling-kangaroo.png" width="240"> | **Profile & stats**<br><img src="docs/screenshots/23-profile.png" width="240"> | |
+| **Holiday catch: rarity near you vs. locked**<br><img src="docs/screenshots/22-wildling-kangaroo.png" width="240"> | **Profile & stats**<br><img src="docs/screenshots/23-profile.png" width="240"> | **Sign in**<br><img src="docs/screenshots/24-sign-in.png" width="240"> |
+| **Create account**<br><img src="docs/screenshots/25-create-account.png" width="240"> | | |
 
 ### Wildlings rules (fair play)
 
@@ -195,6 +197,10 @@ export XENO_CANTO_API_KEY=...                           # never commit it
 python tools/ingest/xeno_canto_ingest.py index && python tools/ingest/xeno_canto_ingest.py shards
 python tools/ingest/build_audio_dataset.py --place-lat 52.46 --place-lng 5.03 --top 30 --source both --spectrograms
 ```
+
+## Accounts across devices (not built in)
+
+WildID accounts work without any server, which is why there's no email or verification step. They also stay on one iPhone. Signing in to the same account on a second phone would need a hosted backend (for example a free Supabase project with email confirmation turned off, or CloudKit, which needs a paid Apple Developer membership). The app's `AccountStore` keeps the account logic in one place so a backend can be added later.
 
 ## Data sources & licenses
 

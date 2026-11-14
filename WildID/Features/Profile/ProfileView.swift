@@ -9,6 +9,7 @@ struct ProfileView: View {
     @Query(sort: \SavedRecording.startedAt) private var recordings: [SavedRecording]
     @Environment(\.dismiss) private var dismiss
     @Environment(Router.self) private var router
+    @Environment(AccountStore.self) private var accounts
 
     private var catches: [Catch] { entries.flatMap(\.catches) }
     private var totalXP: Int { entries.reduce(0) { $0 + $1.xp } }
@@ -72,6 +73,9 @@ struct ProfileView: View {
             }
             .frame(width: 92, height: 92)
             VStack(alignment: .leading, spacing: 4) {
+                if let a = accounts.current {
+                    Text(a.greetingName).font(.system(size: 20, weight: .heavy, design: .rounded)).foregroundStyle(.white).lineLimit(1)
+                }
                 Text(Self.rankTitle(level: lvl.level)).font(.system(size: 13, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white.opacity(0.85)).textCase(.uppercase)
                 Text("\(totalXP.formatted()) XP").font(.system(size: 30, weight: .heavy, design: .rounded)).foregroundStyle(.white)

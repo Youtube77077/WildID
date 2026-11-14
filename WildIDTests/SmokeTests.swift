@@ -383,3 +383,54 @@ final class GameRulesTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class AccountTests: XCTestCase {
+    private func makeStore(_ vault: MemoryAccountVault = MemoryAccountVault()) -> (AccountStore, MemoryAccountVault) {
+        let defaults = UserDefaults(suiteName: "wildid.tests.\(UUID().uuidString)")!
+        return (AccountStore(vault: vault, defaults: defaults, inMemoryStores: true), vault)
+    }
+
+    /// Sign up logs in straight away: no email, no verification, no second step.
+    func testSignUpSignsInImmediately() throws {
+        let (store, vault) = makeStore()
+        let account = try store.signUp(username: "fox_finder", password: "hunter22", displayName: "Fox")
+        XCTAssertEqual(store.current?.id, account.id)
+        XCTAssertEqual(account.storeName, "WildID")          // first account keeps the existing Wild Index
+        // The password itself is never stored.
+        let saved = String(decoding: vault.data ?? Data(), as: UTF8.self)
+        XCTAssertFalse(saved.contains("hunter22"))
+        // A second account gets its own database and backup.
+        store.signOut()
+        let second = try store.signUp(username: "owl.watcher", password: "secret99")
+        XCTAssertNotEqual(second.storeName, account.storeName)
+        XCTAssertNotEqual(second.backupService, account.backupService)
+    }
+
+    func testSignInChecksPassword() throws {
+        let (store, vault) = makeStore()
+        try store.signUp(username: "Heron", password: "grey-heron")
+        store.signOut()
+        XCTAssertThrowsError(try store.signIn(username: "heron", password: "wrong-pass"))
+        XCTAssertNil(store.current)
+        try store.signIn(username: "HERON", password: "grey-heron")   // usernames ignore case
+        XCTAssertEqual(store.current?.username, "Heron")
+        // Accounts are read back from storage (as after relaunching the app).
+        let (reloaded, _) = makeStore(vault)
+        XCTAssertEqual(reloaded.accounts.count, 1)
+        XCTAssertNoThrow(try reloaded.signIn(username: "heron", password: "grey-heron"))
+    }
+
+    func testValidationAndReset() throws {
+        let (store, _) = makeStore()
+        XCTAssertThrowsError(try store.signUp(username: "ab", password: "longenough"))         // too short
+        XCTAssertThrowsError(try store.signUp(username: "bad name!", password: "longenough"))  // characters
+        XCTAssertThrowsError(try store.signUp(username: "badger", password: "123"))            // password
+        try store.signUp(username: "badger", password: "honeybadger")
+        XCTAssertThrowsError(try store.signUp(username: "BADGER", password: "another1"))       // taken
+        store.signOut()
+        try store.resetPassword(username: "badger", newPassword: "newsecret")
+        XCTAssertThrowsError(try store.signIn(username: "badger", password: "honeybadger"))
+        XCTAssertNoThrow(try store.signIn(username: "badger", password: "newsecret"))
+    }
+}

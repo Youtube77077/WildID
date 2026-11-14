@@ -21,7 +21,19 @@ final class BackupStore {
     private(set) var restoredSpecies = 0
     private var pending: Task<Void, Never>?
 
-    private let service = "wildid.backup.v1"
+    /// Keychain service of the signed-in account's backup ("wildid.backup.v1" for the first account).
+    private(set) var service = "wildid.backup.v1"
+
+    /// Switches to another account's backup.
+    func use(service: String) {
+        guard service != self.service else { return }
+        pending?.cancel()
+        self.service = service
+        lastSaved = nil
+        savedSpecies = 0
+        restoredSpecies = 0
+        loadInfo()
+    }
     private let chunkSize = 200 * 1024
 
     struct BackupCatch: Codable {
@@ -71,7 +83,9 @@ final class BackupStore {
         var entries: [BackupEntry]
     }
 
-    init() {
+    init() { loadInfo() }
+
+    private func loadInfo() {
         if let meta = read(account: "meta"), let info = try? JSONDecoder().decode([String: Double].self, from: meta) {
             lastSaved = info["savedAt"].map { Date(timeIntervalSince1970: $0) }
             savedSpecies = Int(info["species"] ?? 0)
